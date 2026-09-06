@@ -23,10 +23,7 @@ export function openSolution(entry) {
   const { question } = entry;
   const answers = describeAnswers(entry);
 
-  const idSuffix = question.question_id
-    ? ` <span class="modal__id">(ID: ${escapeHtml(question.question_id)})</span>`
-    : '';
-  setHtml(ui.title, `Module ${entry.module}, Question ${entry.number}${idSuffix}`);
+  setText(ui.title, `Module ${entry.module}, Question ${entry.number}`);
 
   const figure = renderQuestionFigure(question.image);
   setHtml(ui.figure, figure);
