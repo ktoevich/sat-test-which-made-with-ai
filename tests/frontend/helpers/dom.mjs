@@ -5,7 +5,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 
-export const FRONTEND_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+export const FRONTEND_ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../public',
+);
 
 /**
  * Install a jsdom window as the globals the app expects, then import the app.

@@ -33,11 +33,11 @@ test: test-backend test-frontend
 test-backend: install
 	cd backend && .venv/bin/python -m pytest
 
-frontend/node_modules:
-	cd frontend && npm install
+node_modules:
+	npm install
 
-test-frontend: frontend/node_modules
-	cd frontend && npm test
+test-frontend: node_modules
+	npm test
 
 validate: install
 	cd backend && .venv/bin/python -m app.cli validate
@@ -49,5 +49,5 @@ generate: install
 	cd backend && .venv/bin/python -m app.cli generate --bundles $(BUNDLES) --force
 
 clean:
-	rm -rf $(VENV) backend/.pytest_cache frontend/node_modules
+	rm -rf $(VENV) backend/.pytest_cache node_modules
 	find . -name __pycache__ -type d -prune -exec rm -rf {} +

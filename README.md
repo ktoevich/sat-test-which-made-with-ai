@@ -30,9 +30,9 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 
 ### Running the frontend separately
 
-Set `SERVE_FRONTEND=0` for the backend and host `frontend/` with any static
+Set `SERVE_FRONTEND=0` for the backend and host `public/` with any static
 server. The page then talks to `http://127.0.0.1:5000/api` by default; point it
-elsewhere through the meta tag in `frontend/index.html`:
+elsewhere through the meta tag in `public/index.html`:
 
 ```html
 <meta name="sat:api-base" content="https://api.example.com/api">
@@ -46,7 +46,7 @@ imports on the `file:` scheme.
 ```bash
 make test            # both suites
 make test-backend    # pytest, in backend/
-make test-frontend   # jsdom walk-through of the whole UI, in frontend/
+make test-frontend   # jsdom walk-through of the whole UI
 ```
 
 The backend suite runs against SQLite by default. To check the code path the
@@ -95,7 +95,7 @@ backend/
   tests/                 pytest suite
   wsgi.py                dev server / gunicorn entry point
 
-frontend/
+public/                  the frontend, served straight from the CDN
   index.html
   styles/
     main.css             the only stylesheet the page links
@@ -114,8 +114,11 @@ frontend/
       exam/              state, timer, navigator, question view, controller
       results/           score screen, solution and attempt modals
     ui/                  screen switching, loading overlay, modals
-  tests/                 jsdom end-to-end suite
-  package.json           test-only tooling (jsdom); the app needs no build
+
+tests/frontend/          jsdom end-to-end suite
+package.json             test-only tooling (jsdom); the app needs no build
+index.py                 entry point for hosts that look for a Flask `app`
+vercel.json              function settings
 ```
 
 ## API
@@ -314,7 +317,7 @@ Backend settings come from environment variables — see `backend/.env.example`.
 | `HOST`, `PORT`       | `127.0.0.1`, `5000`            | Bind address for `wsgi.py` |
 | `QUESTION_BANK_PATH` | `backend/data/tests_bundle_cache.json` | Question bank location |
 | `CORS_ORIGINS`       | `*`                            | Comma-separated allowed browser origins |
-| `SERVE_FRONTEND`     | `1` (`0` in production)        | Also serve `frontend/` from Flask |
+| `SERVE_FRONTEND`     | `1` (`0` in production)        | Also serve `public/` from Flask |
 | `DATABASE_URL`       | unset                          | Postgres URL; overrides `DATABASE_PATH`. `POSTGRES_URL` also works |
 | `DATABASE_PATH`      | `backend/data/app.db`          | SQLite file used when no URL is set |
 | `PASSWORD_ITERATIONS`| `600000`                       | PBKDF2 rounds |
@@ -323,12 +326,12 @@ Backend settings come from environment variables — see `backend/.env.example`.
 
 ### Vercel
 
-The repository is ready to deploy as-is:
+The repository is ready to deploy as-is, with no build step:
 
 - `index.py` exposes the Flask `app` Vercel looks for at the repository root.
-- `build_public.py` copies `frontend/` into `public/`, which Vercel serves from
-  the CDN, so pages and assets never wake a function.
-- `vercel.json` wires the build command and the function.
+- `public/` holds the frontend. Vercel serves that directory from the CDN, so
+  pages and assets never wake a function; everything else reaches Flask.
+- `vercel.json` configures the function.
 - `.vercelignore` keeps tests, virtualenvs and the local database out.
 
 **A database is required.** Serverless functions get a read-only, throwaway
@@ -368,7 +371,7 @@ FLASK_ENV=production DATABASE_URL=postgres://... \
   .venv/bin/gunicorn --bind 0.0.0.0:8000 "wsgi:app"
 ```
 
-Set `SERVE_FRONTEND=1` if you want Flask to serve `frontend/` itself instead of
+Set `SERVE_FRONTEND=1` if you want Flask to serve `public/` itself instead of
 putting it behind a CDN, and set `CORS_ORIGINS` to the real frontend origin.
 
 ## Known limitations

@@ -3,8 +3,7 @@
 backend/.venv/
 backend/.pytest_cache/
 backend/tests/
-frontend/tests/
-frontend/node_modules/
+tests/
 node_modules/
 __pycache__/
 *.pyc

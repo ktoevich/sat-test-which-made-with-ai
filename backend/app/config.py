@@ -50,9 +50,10 @@ class BaseConfig:
         if origin.strip()
     ]
 
-    # Directory with the static frontend; served by Flask in development so the
-    # whole app can run from a single process.
-    FRONTEND_DIR = Path(os.environ.get("FRONTEND_DIR", BASE_DIR.parent / "frontend"))
+    # Directory with the static frontend, served by Flask in development so the
+    # whole app runs from one process. In production a CDN serves it directly:
+    # "public" is the directory name hosts look for.
+    FRONTEND_DIR = Path(os.environ.get("FRONTEND_DIR", BASE_DIR.parent / "public"))
     SERVE_FRONTEND = _env_bool("SERVE_FRONTEND", True)
 
     JSON_SORT_KEYS = False

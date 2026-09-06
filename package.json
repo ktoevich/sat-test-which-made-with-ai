@@ -1,9 +1,9 @@
 {
-  "name": "sat-practice-frontend",
+  "name": "sat-practice",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Digital SAT mock test UI. Ships as plain ES modules; npm is only needed to run the tests.",
+  "description": "Digital SAT mock test. The UI in public/ ships as plain ES modules; npm is only needed to run its tests.",
   "scripts": {
     "test": "node --test"
   },
