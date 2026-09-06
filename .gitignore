@@ -1,0 +1,29 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+
+# Local database (accounts and test history)
+backend/data/app.db
+backend/data/app.db-wal
+backend/data/app.db-shm
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+
+# Node (frontend test tooling only; the app itself needs no build)
+node_modules/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+.cph/
+public/

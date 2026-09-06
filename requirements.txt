@@ -1,0 +1,7 @@
+# Dependencies installed for the deployed function.
+# Local development uses backend/requirements-dev.txt.
+-r backend/requirements.txt
+
+# PostgreSQL driver: serverless hosts have no persistent disk, so the SQLite
+# file used locally cannot be used in production.
+psycopg[binary]==3.3.5

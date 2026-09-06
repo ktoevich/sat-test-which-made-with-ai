@@ -1,0 +1,37 @@
+.hidden {
+  display: none !important;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.text-muted {
+  color: var(--color-text-muted);
+}
+
+.wrap-text {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  white-space: normal;
+}
+
+/* Discourages casual copying of question content. */
+.no-copy {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.no-copy svg {
+  pointer-events: none;
+}

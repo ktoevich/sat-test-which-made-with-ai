@@ -1,0 +1,7 @@
+/* KaTeX renders wide formulas; keep them inside their panel. */
+.katex-display {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: var(--space-1);
+}

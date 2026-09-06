@@ -1,0 +1,18 @@
+# Local tooling and data that must not reach the deployment.
+.venv/
+backend/.venv/
+backend/.pytest_cache/
+backend/tests/
+frontend/tests/
+frontend/node_modules/
+node_modules/
+__pycache__/
+*.pyc
+
+# The local SQLite database is never used in production.
+backend/data/app.db
+backend/data/app.db-wal
+backend/data/app.db-shm
+
+.env
+.env.local

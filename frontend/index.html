@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Digital SAT Mock Test</title>
+
+  <!--
+    The API is at /api on this same origin by default. Fill this in only when the
+    frontend is hosted separately, e.g. content="http://127.0.0.1:5000/api".
+  -->
+  <meta name="sat:api-base" content="">
+
+  <link rel="stylesheet" href="./styles/main.css">
+
+  <!-- KaTeX renders the LaTeX inside question text. -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+  <script type="module" src="./src/main.js"></script>
+</head>
+<body>
+  <!-- ===================== Auth ===================== -->
+  <div id="auth-screen" class="auth-overlay hidden">
+    <div class="auth-card">
+      <div class="auth-tabs" role="tablist">
+        <button class="auth-tab is-active" id="auth-tab-login" data-auth-mode="login" role="tab">Log In</button>
+        <button class="auth-tab" id="auth-tab-register" data-auth-mode="register" role="tab">Sign Up</button>
+      </div>
+
+      <form class="auth-body" id="auth-form" novalidate>
+        <h2 id="auth-title">Welcome back!</h2>
+        <p id="auth-subtitle">Enter your credentials to log in</p>
+
+        <div class="auth-form">
+          <div id="auth-username-field" class="hidden">
+            <input type="text" id="auth-username" class="field" placeholder="Username" autocomplete="username">
+          </div>
+          <input type="email" id="auth-email" class="field" placeholder="Email" autocomplete="email">
+          <input type="password" id="auth-password" class="field" placeholder="Password" autocomplete="current-password">
+          <div id="auth-confirm-field" class="hidden">
+            <input type="password" id="auth-confirm" class="field" placeholder="Confirm password" autocomplete="new-password">
+          </div>
+        </div>
+
+        <p class="auth-error" id="auth-error" role="alert"></p>
+        <button type="submit" class="btn-primary auth-submit" id="auth-submit">Log In</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="app-container">
+    <!-- ===================== Exam chrome ===================== -->
+    <header class="top-bar hidden" id="top-bar">
+      <div class="top-bar__title hidden" id="section-info">Math: Module 1</div>
+      <div class="timer hidden" id="timer" title="Show/hide timer">
+        <div class="timer__value" id="timer-value">35:00</div>
+        <div class="timer__icon hidden" id="timer-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+        </div>
+      </div>
+      <div class="top-bar__spacer"></div>
+    </header>
+
+    <!-- ===================== Lobby ===================== -->
+    <div id="lobby-screen" class="lobby-screen hidden">
+      <div class="dashboard">
+        <div id="lobby-notice-slot"></div>
+
+        <div class="card dashboard__header">
+          <div>
+            <h2 class="dashboard__title">Digital SAT mock-test</h2>
+            <p class="dashboard__subtitle">
+              Welcome back, <span class="dashboard__username" id="lobby-username">Student</span>! Ready to practice?
+            </p>
+          </div>
+          <div class="dashboard__actions">
+            <button type="button" class="btn-secondary btn-secondary--danger" id="logout-btn">Logout</button>
+            <button type="button" class="btn-primary btn-primary--large" id="start-test-btn">+ Start Mock Test</button>
+          </div>
+        </div>
+
+        <div class="dashboard__stats">
+          <div class="card stat-card">
+            <div class="stat-card__title">Tests Taken</div>
+            <div class="stat-card__value" id="stat-tests">0</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-card__title">Best Score</div>
+            <div class="stat-card__value" id="stat-best">-</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-card__title">Average Score</div>
+            <div class="stat-card__value" id="stat-average">-</div>
+          </div>
+        </div>
+
+        <div class="card dashboard__history">
+          <h3 class="table-title">Your Recent Tests</h3>
+          <table class="data-table">
+            <thead>
+              <tr><th>Date</th><th>Score</th><th>Correct</th><th>Action</th></tr>
+            </thead>
+            <tbody id="history-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== Question view ===================== -->
+    <main class="main-content hidden" id="exam-screen">
+      <div class="content-split">
+        <section class="panel panel--question">
+          <div id="question-figure" class="question-figure hidden"></div>
+          <div class="question-text no-copy wrap-text" id="question-text">Loading question...</div>
+        </section>
+
+        <section class="panel">
+          <div class="tools-bar">
+            <button type="button" class="tool-btn" id="flag-btn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+              </svg>
+              Mark for Review
+            </button>
+          </div>
+          <ul class="no-copy" id="options-list"></ul>
+        </section>
+      </div>
+    </main>
+
+    <footer class="bottom-bar hidden" id="exam-footer">
+      <div class="bottom-bar__left"></div>
+
+      <div class="bottom-bar__center">
+        <button type="button" class="tracker-btn" id="tracker-btn">1 of 5</button>
+        <div id="question-map" class="question-map hidden">
+          <div class="question-map__grid" id="question-map-grid"></div>
+        </div>
+      </div>
+
+      <div class="bottom-bar__right">
+        <button type="button" class="btn-secondary" id="prev-btn" disabled>Previous</button>
+        <button type="button" class="btn-secondary" id="next-btn">Next</button>
+      </div>
+    </footer>
+
+    <!-- ===================== Intermission / results ===================== -->
+    <div id="intermission-screen" class="intermission-overlay hidden">
+      <h1 class="intermission-overlay__title" id="intermission-title">Module 1 Complete</h1>
+      <p class="intermission-overlay__message" id="intermission-message">
+        Take a short breath. Ready to proceed to Module 2?
+      </p>
+
+      <div id="final-results" class="results-card hidden">
+        <div class="score-header">
+          <h2 class="score-header__title">Your Total SAT Math Score</h2>
+          <div class="score-circle">
+            <div class="score-circle__fill" id="score-fill"></div>
+            <span class="score-circle__value" id="score-value">800</span>
+          </div>
+          <div class="score-header__details" id="score-details"></div>
+        </div>
+
+        <h3 class="table-title">Question Breakdown</h3>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr><th>#</th><th>Difficulty</th><th>Status</th><th>Action</th></tr>
+            </thead>
+            <tbody id="review-table-body"></tbody>
+          </table>
+        </div>
+
+        <p class="notice notice--warning hidden" id="results-save-notice"></p>
+        <button type="button" class="btn-primary btn-primary--block" id="back-to-lobby-btn">Return to Lobby</button>
+      </div>
+    </div>
+
+    <!-- ===================== Modals ===================== -->
+    <div id="solution-modal" class="modal-overlay hidden">
+      <div class="modal">
+        <h3 class="modal__title" id="solution-title">Question Details</h3>
+        <div id="solution-figure" class="modal__figure hidden"></div>
+        <div class="modal__body no-copy wrap-text" id="solution-text"></div>
+        <div class="rationale no-copy hidden" id="solution-rationale"></div>
+
+        <div class="answer-summary answer-summary--plain">
+          <div><strong>Your Answer: </strong><span id="solution-user-answer"></span></div>
+          <div><strong>Correct Answer: </strong><span class="answer-value--correct" id="solution-correct-answer"></span></div>
+        </div>
+
+        <button type="button" class="btn-primary btn-primary--block" data-close-modal="solution-modal">Close</button>
+      </div>
+    </div>
+
+    <div id="attempt-modal" class="modal-overlay hidden">
+      <div class="modal modal--wide">
+        <div class="score-header">
+          <h2 class="score-header__title">Test Results</h2>
+          <div class="score-circle score-circle--small">
+            <div class="score-circle__fill" id="attempt-score-fill"></div>
+            <span class="score-circle__value" id="attempt-score-value">800</span>
+          </div>
+          <div class="score-header__details" id="attempt-summary"></div>
+        </div>
+
+        <h3 class="table-title">Detailed Breakdown</h3>
+        <div class="table-scroll">
+          <div class="attempt-list" id="attempt-questions"></div>
+        </div>
+
+        <button type="button" class="btn-primary btn-primary--block" data-close-modal="attempt-modal">Close Details</button>
+      </div>
+    </div>
+
+    <div id="finish-modal" class="modal-overlay modal-overlay--top hidden">
+      <div class="modal modal--compact">
+        <h3 class="modal__title">Are you sure?</h3>
+        <p class="modal__text">
+          You will not be able to return to this module. Are you sure you want to finish?
+        </p>
+        <div class="modal__actions">
+          <button type="button" class="btn-secondary" data-close-modal="finish-modal">Cancel</button>
+          <button type="button" class="btn-primary" id="finish-confirm-btn">Confirm</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== Loading / countdown ===================== -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+      <h1 class="loading-overlay__text" id="loading-text">
+        Module 1 is generating<span class="loading-dots"></span>
+      </h1>
+      <div id="countdown" class="countdown hidden">
+        <span class="countdown__number" id="countdown-number">3</span>
+        <p class="countdown__caption">Get ready</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
