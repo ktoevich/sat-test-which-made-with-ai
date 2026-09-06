@@ -1,6 +1,11 @@
-# Dependencies installed for the deployed function.
-# Local development uses backend/requirements-dev.txt.
--r backend/requirements.txt
+# Dependencies for the deployed function.
+#
+# The pins from backend/requirements.txt are repeated here rather than pulled in
+# with "-r": Vercel's requirements parser rejects include directives. A test
+# (backend/tests/test_requirements.py) fails if the two files drift apart.
+Flask==3.0.3
+Flask-Cors==4.0.1
+gunicorn==22.0.0
 
 # PostgreSQL driver: serverless hosts have no persistent disk, so the SQLite
 # file used locally cannot be used in production.
