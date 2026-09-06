@@ -20,6 +20,13 @@ from flask import Flask, g
 SQLITE = "sqlite"
 POSTGRES = "postgres"
 
+#: Set once the schema has been created, so it is attempted only until it works.
+SCHEMA_READY = "db_schema_ready"
+
+
+class DatabaseUnavailable(RuntimeError):
+    """The database could not be reached or prepared."""
+
 POSTGRES_SCHEMES = ("postgres://", "postgresql://")
 
 
@@ -158,11 +165,26 @@ def database_target(config: Mapping[str, Any]) -> str:
 
 
 def get_db() -> Database:
-    """The connection for the current request, opened on first use."""
+    """The connection for the current request, opened on first use.
+
+    If the schema could not be created at startup — a serverless host with no
+    database configured yet, for instance — this retries it here so the app
+    recovers as soon as the database becomes reachable.
+    """
     from flask import current_app
 
-    if "db" not in g:
-        g.db = connect(database_target(current_app.config))
+    if "db" in g:
+        return g.db
+
+    try:
+        database = connect(database_target(current_app.config))
+        if not current_app.extensions.get(SCHEMA_READY):
+            database.init_schema()
+            current_app.extensions[SCHEMA_READY] = True
+    except Exception as error:
+        raise DatabaseUnavailable(str(error)) from error
+
+    g.db = database
     return g.db
 
 
@@ -173,11 +195,26 @@ def close_db(_exception: BaseException | None = None) -> None:
 
 
 def init_app(app: Flask) -> None:
-    """Create the schema once at startup and close connections per request."""
-    app.teardown_appcontext(close_db)
+    """Create the schema once at startup and close connections per request.
 
-    database = connect(database_target(app.config))
+    Startup must not fail when the database is unreachable: on a serverless host
+    the disk is read-only, so an unconfigured database would otherwise crash the
+    whole application at import time and take the question bank down with it.
+    The schema is retried on the first request that needs it.
+    """
+    app.teardown_appcontext(close_db)
+    app.extensions[SCHEMA_READY] = False
+
     try:
-        database.init_schema()
-    finally:
-        database.close()
+        database = connect(database_target(app.config))
+        try:
+            database.init_schema()
+            app.extensions[SCHEMA_READY] = True
+        finally:
+            database.close()
+    except Exception as error:
+        app.logger.warning(
+            "Database not ready at startup (%s); accounts stay unavailable until "
+            "DATABASE_URL points at a reachable database.",
+            error,
+        )

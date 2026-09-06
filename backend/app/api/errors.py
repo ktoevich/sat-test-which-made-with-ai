@@ -13,3 +13,17 @@ def error_response(status: int, code: str, message: str, **extra: Any):
     if extra:
         payload["error"].update(extra)
     return jsonify(payload), status
+
+
+def register_error_handlers(app) -> None:
+    """Translate infrastructure failures into the same JSON envelope."""
+    from ..db import DatabaseUnavailable
+
+    @app.errorhandler(DatabaseUnavailable)
+    def _database_unavailable(error: DatabaseUnavailable):
+        app.logger.error("Database unavailable: %s", error)
+        return error_response(
+            503,
+            "database_unavailable",
+            "The database is not reachable. Accounts and history are unavailable.",
+        )

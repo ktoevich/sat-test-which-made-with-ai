@@ -9,6 +9,7 @@ from flask import Flask, send_from_directory
 
 from . import db
 from .api import BLUEPRINTS
+from .api.errors import register_error_handlers
 from .config import BaseConfig, get_config
 from .extensions import cors
 from .services import QuestionBank
@@ -32,6 +33,8 @@ def create_app(config_name: str | None = None, **overrides) -> Flask:
 
     for blueprint in BLUEPRINTS:
         app.register_blueprint(blueprint)
+
+    register_error_handlers(app)
 
     if app.config.get("SERVE_FRONTEND"):
         _register_frontend(app, Path(app.config["FRONTEND_DIR"]))
