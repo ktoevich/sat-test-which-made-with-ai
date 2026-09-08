@@ -10,8 +10,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Iterable
 
+from .taxonomy import DIFFICULTIES
+
 QUESTION_TYPES = ("MCQ", "SPR")
-DIFFICULTIES = ("Easy", "Medium", "Hard")
 MODULE_KEYS = ("module_1", "module_2_HIGHER", "module_2_LOWER")
 
 REQUIRED_QUESTION_FIELDS = ("question_id", "type", "difficulty", "text", "answer")

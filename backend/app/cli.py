@@ -1,9 +1,11 @@
 """Command line tools for the question bank.
 
-    python -m app.cli validate [--bank PATH]
-    python -m app.cli stats    [--bank PATH]
+    python -m app.cli validate  [--bank PATH]
+    python -m app.cli stats     [--bank PATH]
+    python -m app.cli blueprint
     python -m app.cli generate --bundles 3 -o data/tests_bundle_cache.json
     python -m app.cli import export.csv --bundles 2 -o data/tests_bundle_cache.json
+    python -m app.cli export -o ../answer-keys
     python -m app.cli users list
     python -m app.cli users reset-password student@example.com
 
@@ -22,16 +24,19 @@ from typing import Any, Sequence
 from .bank import (
     AssemblyError,
     BankValidationError,
+    BlueprintError,
     GenerationError,
     assemble_bank,
     assert_valid,
     default_spec,
+    export_bank,
     generate_bank,
     import_questions,
     load_source,
     summarise,
     validate_bank,
 )
+from .bank import blueprint as blueprint_tables
 from .bank.importer import ImportError_
 from .config import BaseConfig
 from . import cli_users
@@ -94,6 +99,39 @@ def cmd_stats(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_blueprint(args: argparse.Namespace) -> int:
+    """Print the module structure the generator follows."""
+    print(
+        f"{blueprint_tables.QUESTIONS_PER_MODULE} questions per module: "
+        f"{blueprint_tables.MULTIPLE_CHOICE_PER_MODULE} multiple choice, "
+        f"{blueprint_tables.STUDENT_RESPONSE_PER_MODULE} grid-ins. "
+        f"Module 2 is the harder route from {blueprint_tables.ADAPTIVE_MIN_CORRECT} correct in module 1."
+    )
+    for module in blueprint_tables.MODULES:
+        print(f"\n{module.title}  ({module.key})")
+        print(f"  {module.description}")
+        bands = ", ".join(f"{band.first}-{band.last} {band.label}" for band in module.bands)
+        print(f"  questions {bands}")
+        for section in module.sections:
+            print(f"  {section.domain} ({_span(section.minimum, section.maximum)})")
+            for topic in section.topics:
+                print(f"    {_span(topic.minimum, topic.maximum):>4}  {topic.label}: {topic.note}")
+    return 0
+
+
+def _span(low: int, high: int) -> str:
+    return str(low) if low == high else f"{low}-{high}"
+
+
+def cmd_export(args: argparse.Namespace) -> int:
+    bank = _read_bank(args.bank)
+    written = export_bank(bank, args.output)
+    print(f"wrote {len(written)} file(s) to {args.output}")
+    for path in written:
+        print(f"  {path.name}")
+    return 0
+
+
 def cmd_generate(args: argparse.Namespace) -> int:
     rng = random.Random(args.seed)
     spec = default_spec(size=args.module_size, spr_count=args.spr)
@@ -101,7 +139,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
         bundles = generate_bank(
             bundles=args.bundles, spec=spec, rng=rng, test_id_prefix=args.prefix
         )
-    except (GenerationError, AssemblyError) as error:
+    except (GenerationError, AssemblyError, BlueprintError) as error:
         raise SystemExit(str(error)) from error
 
     _write_bank(bundles, args.output, force=args.force)
@@ -128,7 +166,7 @@ def cmd_import(args: argparse.Namespace) -> int:
             rng=random.Random(args.seed),
             test_id_prefix=args.prefix,
         )
-    except AssemblyError as error:
+    except (AssemblyError, BlueprintError) as error:
         raise SystemExit(str(error)) from error
 
     _write_bank(bundles, args.output, force=args.force)
@@ -141,8 +179,18 @@ def cmd_import(args: argparse.Namespace) -> int:
 def _add_build_arguments(parser: argparse.ArgumentParser, prefix: str) -> None:
     parser.add_argument("-o", "--output", type=Path, default=DEFAULT_BANK, help="where to write the bank")
     parser.add_argument("--bundles", type=int, default=1, help="how many tests to build")
-    parser.add_argument("--module-size", type=int, default=22, help="questions per module")
-    parser.add_argument("--spr", type=int, default=6, help="grid-in questions per module")
+    parser.add_argument(
+        "--module-size",
+        type=int,
+        default=blueprint_tables.QUESTIONS_PER_MODULE,
+        help="questions per module",
+    )
+    parser.add_argument(
+        "--spr",
+        type=int,
+        default=blueprint_tables.STUDENT_RESPONSE_PER_MODULE,
+        help="grid-in questions per module",
+    )
     parser.add_argument("--seed", type=int, default=None, help="seed for reproducible output")
     parser.add_argument("--prefix", default=prefix, help="prefix for generated test ids")
     parser.add_argument("--force", action="store_true", help="overwrite an existing output file")
@@ -160,6 +208,16 @@ def build_parser() -> argparse.ArgumentParser:
     stats = sub.add_parser("stats", help="summarise a bank file")
     stats.add_argument("--bank", type=Path, default=DEFAULT_BANK)
     stats.set_defaults(func=cmd_stats)
+
+    blueprint = sub.add_parser("blueprint", help="print the module structure the generator follows")
+    blueprint.set_defaults(func=cmd_blueprint)
+
+    export = sub.add_parser("export", help="write the bank as papers with answers and solutions")
+    export.add_argument("--bank", type=Path, default=DEFAULT_BANK)
+    export.add_argument(
+        "-o", "--output", type=Path, default=DEFAULT_BANK.parent.parent.parent / "answer-keys"
+    )
+    export.set_defaults(func=cmd_export)
 
     generate = sub.add_parser("generate", help="build original questions from the templates")
     _add_build_arguments(generate, "sat-generated")

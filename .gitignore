@@ -11,6 +11,9 @@ backend/data/app.db
 backend/data/app.db-wal
 backend/data/app.db-shm
 
+# Generated answer keys (never publish)
+answer-keys/
+
 # Environment
 .env
 .env.local

@@ -1,6 +1,6 @@
 /** Raw-score counting and the conversion to a scaled SAT score. */
 
-import { ADAPTIVE_THRESHOLD, SCORE_MAX, SCORE_MIN } from '../config.js';
+import { ADAPTIVE_PASS_MARK, SCORE_MAX, SCORE_MIN } from '../config.js';
 import { AnswerStatus, statusOf } from './questions.js';
 
 export function countCorrect(questions, answers) {
@@ -29,8 +29,9 @@ export function scoreFillPercent(score) {
   return Math.min(100, Math.max(0, ratio * 100));
 }
 
-/** Module 2 is harder only when module 1 went well enough. */
+/** Module 2 is harder only when module 1 went well enough (15 of 22 or better). */
 export function nextModuleTarget(correct, total) {
   if (!total) return 'LOWER';
-  return correct >= Math.floor(total * ADAPTIVE_THRESHOLD) ? 'HIGHER' : 'LOWER';
+  const needed = Math.ceil((total * ADAPTIVE_PASS_MARK.correct) / ADAPTIVE_PASS_MARK.outOf);
+  return correct >= needed ? 'HIGHER' : 'LOWER';
 }

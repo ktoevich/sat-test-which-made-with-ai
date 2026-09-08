@@ -2,7 +2,9 @@
 
 Adaptive two-module practice test for the digital SAT math section:
 module 1 is served from a pre-generated question bank, and the difficulty of
-module 2 follows how the student did in module 1.
+module 2 follows how the student did in module 1. Every module is 22 questions
+— 17 multiple choice and 5 grid-ins — laid out by the tables in
+`SAT test structure/`.
 
 - **Backend** — Flask API that serves modules from a JSON question bank.
 - **Frontend** — dependency-free ES modules (no build step) plus KaTeX for formulas.
@@ -82,14 +84,15 @@ backend/
       question_bank.py   reads and caches the bundle file
       test_builder.py    orders and numbers a module's questions
     bank/
-      taxonomy.py        the Digital SAT blueprint: domains, skills, shares
+      taxonomy.py        the Digital SAT content domains and their skills
+      blueprint.py       the module structure from SAT test structure/
       schema.py          validation rules for a bank file
       importer.py        normalises an export you already have
       generator.py       builds original questions from templates
       assembler.py       turns a pool of questions into bundles
       templates/         the question templates, by domain
       latex.py           LaTeX formatting helpers
-    cli.py               validate / stats / generate / import commands
+    cli.py               validate / stats / blueprint / generate / import commands
   data/
     tests_bundle_cache.json   the question bank
   tests/                 pytest suite
@@ -115,6 +118,8 @@ public/                  the frontend, served straight from the CDN
       results/           score screen, solution and attempt modals
     ui/                  screen switching, loading overlay, modals
 
+answer-keys/             the bank as readable papers, answers and solutions
+SAT test structure/      the reference tables the modules are built from
 tests/frontend/          jsdom end-to-end suite
 package.json             test-only tooling (jsdom); the app needs no build
 index.py                 entry point for hosts that look for a Flask `app`
@@ -156,48 +161,70 @@ Everything below runs from `backend/` with the virtualenv active
 
 ### The blueprint
 
-`app/bank/taxonomy.py` encodes the published structure of the Digital SAT math
-section: two 35-minute modules of 22 questions, the four content domains, their
-approximate shares of the test, and the skills tested under each. On a 44-question
-section those shares work out to 15 / 15 / 7 / 7 questions.
+`app/bank/taxonomy.py` lists the four content domains of the Digital SAT math
+section and the skills tested under each. `app/bank/blueprint.py` says how a
+module is put together, transcribed from the screenshots in
+`SAT test structure/`:
 
-| Domain | Share | Skills |
-| ------ | ----- | ------ |
-| Algebra | ~35% | 5 |
-| Advanced Math | ~35% | 3 |
-| Problem-Solving and Data Analysis | ~15% | 7 |
-| Geometry and Trigonometry | ~15% | 4 |
+- every module is **22 questions: 17 multiple choice and 5 grid-ins**;
+- each question number sits in a **difficulty band**;
+- each domain gets a range of questions, split across **subtopics** with their
+  own ranges.
+
+| Module | Questions | When |
+| ------ | --------- | ---- |
+| Module 1 | 1–7 Easy, 8–15 Medium, 16–22 Hard | Everyone |
+| Module 2 — Lower | 1–10 Easy, 11–18 Medium, 19–22 Hard | Fewer than 15 of 22 correct in module 1 |
+| Module 2 — Higher | 1–5 Medium, 6–15 Medium Hard, 16–22 Very Hard | 15 or more of 22 correct in module 1 |
+
+The bank labels difficulty as Easy, Medium or Hard, so the harder route's
+"Medium Hard" and "Very Hard" bands both draw from the Hard pool.
+
+Domain ranges per module (subtopics are in the file, or run `make blueprint`):
+
+| Domain | Module 1 | Module 2 — Lower | Module 2 — Higher |
+| ------ | -------- | ---------------- | ----------------- |
+| Algebra | 7–8 | 8–9 | 5–6 |
+| Advanced Math | 7–8 | 4–6 | 9–10 |
+| Problem-Solving and Data Analysis | 3–4 | 4–5 | 2–3 |
+| Geometry and Trigonometry | 3–4 | 3–4 | 3–4 |
+
+Building a module means *planning* it first: pick an exact count for every
+subtopic inside its range, pair each of those slots with a type and a difficulty
+from the bands, and only then draw or generate a question per slot. The test
+suite checks that the tables are consistent, that every subtopic has a template,
+and that a generated bank lands inside every range.
 
 Templates declare which domain and skill they cover, and the test suite fails if
-a template names something outside the blueprint or if a skill has no template,
+a template names something outside the taxonomy or if a skill has no template,
 so coverage cannot silently regress.
 
 ### Generate original questions
 
-`app.cli generate` builds questions from this project's own templates — 20 of
-them, at least one per skill in the blueprint, each parameterised by difficulty.
-Question selection chases the published domain shares, so a generated bank lands
-on the 35/35/15/15 split rather than whatever the templates happen to produce.
+`app.cli generate` builds questions from this project's own templates — 21 of
+them, at least one per skill, each parameterised by difficulty. Every module is
+planned from the blueprint, so a generated bank follows the subtopic tables in
+`SAT test structure/` rather than whatever the templates happen to produce.
 Nothing is copied from a third-party question bank.
 
 ```bash
-make generate BUNDLES=3
+make generate BUNDLES=5
 # or
-cd backend && .venv/bin/python -m app.cli generate --bundles 3 --seed 42 --force
+cd backend && .venv/bin/python -m app.cli generate --bundles 5 --seed 42 --force
 ```
 
 | Flag | Default | Meaning |
 | ---- | ------- | ------- |
 | `--bundles` | `1` | How many complete tests to build |
-| `--module-size` | `22` | Questions per module |
-| `--spr` | `6` | Grid-in questions per module |
+| `--module-size` | `22` | Questions per module; the blueprint is scaled to fit |
+| `--spr` | `5` | Grid-in questions per module |
 | `--seed` | random | Makes the output reproducible |
 | `-o`, `--output` | `data/tests_bundle_cache.json` | Where to write |
 | `--force` | off | Allow overwriting an existing file |
 
-Module 1 uses a mixed difficulty spread; `module_2_HIGHER` skews hard and
-`module_2_LOWER` skews easy, which is what makes the adaptive second module
-feel different.
+Module 1 is 7 easy, 8 medium and 7 hard questions; `module_2_LOWER` is 10 / 8 / 4
+and `module_2_HIGHER` is 0 / 5 / 17, which is what makes the adaptive second
+module feel different.
 
 ### Import questions you already have
 
@@ -214,11 +241,24 @@ cd backend && .venv/bin/python -m app.cli import ~/export.csv --bundles 2 --forc
 
 Add `--skip-invalid` to drop unusable rows instead of failing on the first one.
 
+### Read the papers
+
+`app.cli export` writes the whole bank out as Markdown — every question with its
+answer and worked solution, one file per test plus an index:
+
+```bash
+make export        # -> answer-keys/
+```
+
+The folder is committed, so the current bank is browsable on GitHub without
+running anything. Regenerate it whenever you rebuild the bank.
+
 ### Check what you have
 
 ```bash
 make validate   # every problem, addressed as $[0].module_1[3].answer
 make stats      # counts by module, type, difficulty and domain
+make blueprint  # the module structure, band by band and topic by topic
 ```
 
 Validation also runs automatically before `generate` or `import` writes a file,
@@ -300,7 +340,9 @@ A question:
 ```
 
 - `type` is `MCQ` (multiple choice) or `SPR` (student-produced response).
-- `difficulty` is `Easy`, `Medium` or `Hard`; it drives the order inside a module.
+- `difficulty` is `Easy`, `Medium` or `Hard`; it drives the order inside a
+  module, so the served module runs easy to hard with grid-ins mixed in, the
+  way the real test does.
 - `image` is optional: either raw SVG/HTML, or a coordinate-grid descriptor
   `{ "xEnd": 10, "yEnd": 10, "step": 2, "draw": "<svg fragment>" }`.
 
@@ -385,6 +427,9 @@ putting it behind a CDN, and set `CORS_ORIGINS` to the real frontend origin.
   before exposing it to the internet.
 - The question bank is a static file. `app.cli generate` fills it with original
   template-built questions; `app.cli import` converts an export you supply.
-- Advanced Math carries ~35% of the section but has only 3 skills, so the
-  generator leans hard on its four templates. Questions there repeat in shape
-  more than in other domains; more Advanced Math templates would fix it.
+- Advanced Math carries 7–10 questions per module but has only 3 skills, so
+  the generator leans hard on its four templates. Questions there repeat in
+  shape more than in other domains; more Advanced Math templates would fix it.
+- Difficulty has three labels. The harder route's "Medium Hard" and "Very Hard"
+  bands are both filled from the Hard pool, so questions 6–22 of that module
+  are not graded finer than "Hard".

@@ -3,10 +3,10 @@ from collections import Counter
 
 import pytest
 
-from app.bank import schema, taxonomy
-from app.bank.assembler import default_spec
+from app.bank import blueprint, schema, taxonomy
+from app.bank.assembler import BundleSpec, Slot, default_spec
 from app.bank.generator import GenerationError, generate_bank, generate_questions
-from app.bank.templates import TEMPLATES, templates_for
+from app.bank.templates import TEMPLATES, supports, templates_for
 
 
 @pytest.mark.parametrize("template", TEMPLATES, ids=lambda template: template.key)
@@ -45,17 +45,35 @@ def test_every_type_and_difficulty_has_at_least_one_template():
             assert templates_for(qtype, difficulty), f"nothing produces {difficulty} {qtype}"
 
 
-def test_generate_questions_matches_the_requested_counts():
-    requirements = Counter({("MCQ", "Easy"): 5, ("SPR", "Hard"): 3})
-    questions = generate_questions(requirements, rng=random.Random(1))
+def test_generate_questions_builds_one_question_per_slot_in_order():
+    slots = [Slot.any("MCQ", "Easy")] * 5 + [Slot.any("SPR", "Hard")] * 3
+    questions = generate_questions(slots, rng=random.Random(1))
 
-    counts = Counter((q["type"], q["difficulty"]) for q in questions)
-    assert counts == requirements
+    assert [(q["type"], q["difficulty"]) for q in questions] == [
+        (slot.qtype, slot.difficulty) for slot in slots
+    ]
+
+
+def test_generate_questions_stays_on_topic():
+    slots = [Slot(("Circles",), "MCQ", "Easy"), Slot(("Percentages", "Circles"), "SPR", "Medium")]
+    questions = generate_questions(slots, rng=random.Random(1))
+
+    assert questions[0]["skill"] == "Circles"
+    assert questions[1]["skill"] == "Percentages"  # the only one of the two with grid-ins
+
+
+def test_an_unfillable_slot_relaxes_difficulty_before_type():
+    # Nothing builds a Hard grid-in about scatterplots, but a Medium MCQ exists.
+    slot = Slot(("Two-variable data: models and scatterplots",), "SPR", "Hard")
+    question = generate_questions([slot], rng=random.Random(1))[0]
+
+    assert question["skill"] == slot.skills[0]
+    assert question["type"] == "MCQ"
+    assert question["difficulty"] == "Medium"
 
 
 def test_generated_questions_are_unique():
-    requirements = Counter({("MCQ", "Medium"): 40})
-    questions = generate_questions(requirements, rng=random.Random(9))
+    questions = generate_questions([Slot.any("MCQ", "Medium")] * 40, rng=random.Random(9))
 
     # Identity covers the figure and the options, not just the prompt: templates
     # like line_graph reuse one wording and vary only the picture.
@@ -76,7 +94,7 @@ def test_a_reused_prompt_still_yields_distinct_questions():
 
 def test_generation_fails_loudly_when_no_template_fits():
     with pytest.raises(GenerationError, match="no template"):
-        generate_questions(Counter({("ESSAY", "Easy"): 1}), rng=random.Random(1))
+        generate_questions([Slot(("Knitting",), "MCQ", "Easy")], rng=random.Random(1))
 
 
 def test_generated_bank_passes_validation():
@@ -122,24 +140,33 @@ def test_every_blueprint_skill_has_a_template():
     assert taxonomy.ALL_SKILLS - covered == set()
 
 
-def test_generated_bank_follows_the_published_domain_weighting():
-    bank = generate_bank(bundles=4, spec=default_spec(), rng=random.Random(17))
-    questions = [
-        question
-        for bundle in bank
-        for key in ("module_1", "module_2_HIGHER", "module_2_LOWER")
-        for question in bundle[key]
-    ]
+@pytest.mark.parametrize("module", blueprint.MODULES, ids=lambda module: module.key)
+def test_generated_modules_follow_the_reference_tables(module):
+    bank = generate_bank(bundles=3, spec=BundleSpec(), rng=random.Random(17))
 
-    counts = Counter(question["domain"] for question in questions)
-    targets = taxonomy.target_counts(len(questions))
+    for bundle in bank:
+        questions = bundle[module.key]
+        assert len(questions) == 22
+        assert Counter(q["type"] for q in questions) == {"MCQ": 17, "SPR": 5}
+        assert Counter(q["difficulty"] for q in questions) == module.difficulty_counts()
 
-    for domain in taxonomy.DOMAINS:
-        # Some type/difficulty slots are only served by a few templates, so allow
-        # a small drift instead of demanding the exact target.
-        assert abs(counts[domain.name] - targets[domain.name]) <= 0.03 * len(questions), (
-            f"{domain.name}: got {counts[domain.name]}, target {targets[domain.name]}"
-        )
+        by_domain = Counter(q["domain"] for q in questions)
+        by_skill = Counter(q["skill"] for q in questions)
+        for section in module.sections:
+            assert section.minimum <= by_domain[section.domain] <= section.maximum, section.domain
+            for topic in section.topics:
+                count = sum(by_skill[skill] for skill in topic.skills)
+                assert topic.minimum <= count <= topic.maximum, f"{module.key}: {topic.label}"
+
+
+def test_the_templates_cover_every_planned_slot():
+    """The plan never has to fall back, so bands and topics come out exact."""
+    spec = BundleSpec()
+    for seed in range(10):
+        plan = spec.plan(random.Random(seed), supports)
+        for key, slots in plan.items():
+            for slot in slots:
+                assert supports(slot.skills, slot.qtype, slot.difficulty), (key, slot)
 
 
 def test_target_counts_add_up():

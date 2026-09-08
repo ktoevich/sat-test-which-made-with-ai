@@ -5,8 +5,8 @@ from __future__ import annotations
 import math
 import random
 
-from ..latex import number, tex
-from .base import Question, Template, numeric_variants, pick_distractors
+from ..latex import number, signed, tex
+from .base import Question, Template, nonzero, numeric_variants, pick_distractors
 
 DOMAIN = "Geometry and Trigonometry"
 
@@ -74,15 +74,18 @@ class RightTriangleTemplate(Template):
 
 
 class CircleTemplate(Template):
-    """Area or circumference of a circle, in terms of pi."""
+    """Area of a circle from its radius or diameter; at Hard, read the center or
+    radius off an expanded equation ``x^2 + y^2 + Dx + Ey + F = 0``."""
 
     key = "circle_measures"
     domain = DOMAIN
     skill = "Circles"
     types = ("MCQ",)
-    difficulties = ("Easy", "Medium")
 
     def build(self, rng: random.Random, qtype: str, difficulty: str) -> Question:
+        if difficulty == "Hard":
+            return self._from_equation(rng, difficulty)
+
         radius = rng.randint(2, 14)
         from_diameter = difficulty == "Medium"
         given = radius * 2 if from_diameter else radius
@@ -106,6 +109,59 @@ class CircleTemplate(Template):
         )
         return self.mcq(
             text=f"A circle has a {label} of {number(given)}. What is the area of the circle?",
+            correct=answer,
+            distractors=distractors,
+            rationale=rationale,
+            difficulty=difficulty,
+            rng=rng,
+        )
+
+    def _from_equation(self, rng: random.Random, difficulty: str) -> Question:
+        h, k = nonzero(rng, -6, 6), nonzero(rng, -6, 6)
+        radius = rng.randint(2, 9)
+        constant = h * h + k * k - radius * radius
+        while constant == 0:
+            radius = rng.randint(2, 9)
+            constant = h * h + k * k - radius * radius
+
+        equation = tex(f"x^2 + y^2 {signed(-2 * h)}x {signed(-2 * k)}y {signed(constant)} = 0")
+        completed = tex(f"(x {signed(-h)})^2 + (y {signed(-k)})^2 = {number(radius ** 2)}")
+        center = tex(f"({number(h)}, {number(k)})")
+        rationale = (
+            f"Complete the square in {tex('x')} and in {tex('y')}: {completed}. "
+            f"This is a circle with center {center} and radius {tex(number(radius))}."
+        )
+        lead = f"In the {tex('xy')}-plane, the graph of {equation} is a circle."
+
+        if rng.choice([True, False]):
+            answer = number(radius)
+            distractors = pick_distractors(
+                answer,
+                [
+                    number(radius ** 2),
+                    number(abs(constant)),
+                    number(h * h + k * k),
+                    number(2 * radius),
+                ],
+                pad=numeric_variants(radius),
+            )
+            text = f"{lead} What is the radius of the circle?"
+        else:
+            answer = center
+            distractors = pick_distractors(
+                answer,
+                [
+                    tex(f"({number(-h)}, {number(-k)})"),
+                    tex(f"({number(h)}, {number(-k)})"),
+                    tex(f"({number(-h)}, {number(k)})"),
+                    tex(f"({number(2 * h)}, {number(2 * k)})"),
+                ],
+                pad=(tex(f"({number(h + dx)}, {number(k + dy)})") for dx, dy in ((1, 0), (0, 1), (-1, 0))),
+            )
+            text = f"{lead} What are the coordinates of the center of the circle?"
+
+        return self.mcq(
+            text=text,
             correct=answer,
             distractors=distractors,
             rationale=rationale,

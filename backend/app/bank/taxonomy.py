@@ -25,8 +25,13 @@ QUESTIONS_PER_MODULE = 22
 #: Questions across the whole section, a few of which are unscored pretest items.
 TOTAL_QUESTIONS = MODULE_COUNT * QUESTIONS_PER_MODULE
 
-#: Roughly a quarter of the questions ask the student to type the answer in.
-STUDENT_RESPONSE_PER_MODULE = 6
+#: Each module is 17 multiple-choice questions and 5 student-produced responses
+#: (grid-ins). Where each of them falls is laid out in :mod:`.blueprint`.
+MULTIPLE_CHOICE_PER_MODULE = 17
+STUDENT_RESPONSE_PER_MODULE = QUESTIONS_PER_MODULE - MULTIPLE_CHOICE_PER_MODULE
+
+#: The difficulty labels the bank uses, easiest first.
+DIFFICULTIES = ("Easy", "Medium", "Hard")
 
 
 @dataclass(frozen=True)

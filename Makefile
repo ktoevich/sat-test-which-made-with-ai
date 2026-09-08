@@ -2,10 +2,10 @@
 VENV := backend/.venv
 PIP := $(VENV)/bin/pip
 
-BUNDLES ?= 3
+BUNDLES ?= 5
 BANK ?= backend/data/tests_bundle_cache.json
 
-.PHONY: help install run test test-backend test-frontend validate stats generate clean
+.PHONY: help install run test test-backend test-frontend validate stats blueprint generate export clean
 
 help:
 	@echo "make install       - create backend/.venv and install dependencies"
@@ -15,7 +15,9 @@ help:
 	@echo "make test-frontend - run the jsdom suite (needs npm)"
 	@echo "make validate      - check the question bank against the schema"
 	@echo "make stats         - summarise the question bank"
+	@echo "make blueprint     - print the module structure the generator follows"
 	@echo "make generate      - build a bank of original questions (BUNDLES=$(BUNDLES))"
+	@echo "make export        - write answer-keys/ from the current bank"
 	@echo "make clean         - remove the virtualenv, node_modules and caches"
 
 $(VENV):
@@ -45,8 +47,14 @@ validate: install
 stats: install
 	cd backend && .venv/bin/python -m app.cli stats
 
+blueprint: install
+	cd backend && .venv/bin/python -m app.cli blueprint
+
 generate: install
 	cd backend && .venv/bin/python -m app.cli generate --bundles $(BUNDLES) --force
+
+export: install
+	cd backend && .venv/bin/python -m app.cli export
 
 clean:
 	rm -rf $(VENV) backend/.pytest_cache node_modules

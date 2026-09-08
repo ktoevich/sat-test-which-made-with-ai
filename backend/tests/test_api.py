@@ -12,8 +12,8 @@ def test_module_1_returns_ordered_questions(client):
     assert payload["test_id"] == "bundle-1"
     assert payload["module"] == 1
     assert [q["id"] for q in payload["questions"]] == [1, 2, 3]
-    # MCQ first (easy before hard), then SPR.
-    assert [q["question_id"] for q in payload["questions"]] == ["m1-easy", "m1-hard", "m1-spr"]
+    # Easy -> Medium -> Hard, grid-ins wherever their difficulty puts them.
+    assert [q["question_id"] for q in payload["questions"]] == ["m1-easy", "m1-spr", "m1-hard"]
 
 
 def test_module_2_follows_the_requested_target(client):

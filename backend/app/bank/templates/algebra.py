@@ -194,9 +194,13 @@ class LineGraphTemplate(Template):
 
         equation = f"y = {linear(slope, intercept)}"
         answer = tex(equation)
+        # A negative slope falls; saying it "rises -2" reads badly.
+        direction = "rises" if slope > 0 else "falls"
+        step = abs(slope)
         rationale = (
-            f"The line crosses the {tex('y')}-axis at {tex(f'(0, {number(intercept)})')} and rises "
-            f"{number(slope)} unit(s) for every 1 unit to the right, so its equation is {answer}."
+            f"The line crosses the {tex('y')}-axis at {tex(f'(0, {number(intercept)})')} and "
+            f"{direction} {number(step)} unit{'' if step == 1 else 's'} for every 1 unit to the "
+            f"right, so its equation is {answer}."
         )
 
         distractors = pick_distractors(
@@ -234,11 +238,85 @@ class LineGraphTemplate(Template):
         )
 
 
+class TwoVariableModelTemplate(Template):
+    """A situation modelled by ``ax + by = c``; find one quantity from the other.
+
+    At Hard the second quantity is only given relative to the first, so the
+    student has to substitute ``x = y + k`` before solving.
+    """
+
+    key = "two_variable_model"
+    domain = DOMAIN
+    skill = "Linear equations in two variables"
+    types = ("MCQ", "SPR")
+    difficulties = ("Medium", "Hard")
+
+    #: (x item, y item, sentence introducing the two rates, what c counts)
+    SCENARIOS = (
+        ("posters", "flyers", "A print shop charges {a} dollars per poster and {b} dollars per flyer.", "cost {c} dollars"),
+        ("adult tickets", "child tickets", "A theater sells adult tickets for {a} dollars each and child tickets for {b} dollars each.", "brought in {c} dollars"),
+        ("large boxes", "small boxes", "A large box holds {a} books and a small box holds {b} books.", "holds {c} books in total"),
+        ("hours of tutoring", "hours of babysitting", "Maya earns {a} dollars per hour of tutoring and {b} dollars per hour of babysitting.", "earned {c} dollars"),
+    )
+
+    def build(self, rng: random.Random, qtype: str, difficulty: str) -> Question:
+        x_item, y_item, intro, outcome = rng.choice(self.SCENARIOS)
+        a = rng.randint(2, 12)
+        b = rng.randint(2, 12)
+        while b == a:
+            b = rng.randint(2, 12)
+        y0 = rng.randint(2, 12)
+        # At least 2, so "N more posters than flyers" never needs a singular.
+        extra = rng.randint(2, 6)
+        x0 = y0 + extra if difficulty == "Hard" else rng.randint(2, 12)
+        c = a * x0 + b * y0
+
+        equation = tex(f"{sum_terms(term(a), term(b, 'y'))} = {number(c)}")
+        setup = (
+            f"{intro.format(a=a, b=b)} The equation {equation} relates the number of "
+            f"{x_item}, {tex('x')}, and the number of {y_item}, {tex('y')}, in an order that "
+            f"{outcome.format(c=c)}."
+        )
+        answer = number(y0)
+
+        if difficulty == "Hard":
+            text = (
+                f"{setup} The order included {number(extra)} more {x_item} than {y_item}. "
+                f"How many {y_item} did it include?"
+            )
+            rationale = (
+                f"Since {tex(f'x = y + {number(extra)}')}, substitute: "
+                f"{tex(f'{number(a)}(y + {number(extra)}) + {term(b, 'y')} = {number(c)}')}, so "
+                f"{tex(f'{term(a + b, 'y')} = {number(c - a * extra)}')} and {tex(f'y = {answer}')}."
+            )
+            near_misses = [number(x0), number(y0 - extra), number(c // (a + b)), number(x0 + y0)]
+        else:
+            text = f"{setup} If the order included {number(x0)} {x_item}, how many {y_item} did it include?"
+            rationale = (
+                f"Substitute {tex(f'x = {number(x0)}')}: {tex(f'{number(a * x0)} + {term(b, 'y')} = {number(c)}')}, "
+                f"so {tex(f'{term(b, 'y')} = {number(c - a * x0)}')} and {tex(f'y = {answer}')}."
+            )
+            near_misses = [number(x0), number(c - a * x0), number(c // b), number(y0 + 1)]
+
+        if qtype == "SPR":
+            return self.spr(text=text, answer=answer, rationale=rationale, difficulty=difficulty)
+
+        return self.mcq(
+            text=text,
+            correct=answer,
+            distractors=pick_distractors(answer, near_misses, pad=numeric_variants(y0)),
+            rationale=rationale,
+            difficulty=difficulty,
+            rng=rng,
+        )
+
+
 TEMPLATES = [
     LinearEquationTemplate(),
     LinearSystemTemplate(),
     SlopeTemplate(),
     LineGraphTemplate(),
+    TwoVariableModelTemplate(),
 ]
 
 

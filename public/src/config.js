@@ -24,8 +24,11 @@ export const MODULE_DURATION_SECONDS = 35 * 60;
 /** Seconds counted down on screen before a module starts. */
 export const COUNTDOWN_SECONDS = 3;
 
-/** Share of module 1 answered correctly that unlocks the harder module 2. */
-export const ADAPTIVE_THRESHOLD = 0.65;
+/**
+ * Correct answers in module 1 that unlock the harder module 2: 15 of the 22
+ * questions. Kept as a fraction so a module of another size scales the same way.
+ */
+export const ADAPTIVE_PASS_MARK = { correct: 15, outOf: 22 };
 
 /** Scaled-score bounds used to convert the raw score. */
 export const SCORE_MIN = 200;
