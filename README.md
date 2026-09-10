@@ -17,9 +17,14 @@ module 2 follows how the student did in module 1. Every module is 22 questions
 ## Quick start
 
 ```bash
-make install   # creates backend/.venv and installs dependencies
-make run       # http://127.0.0.1:5000
+make install            # creates backend/.venv and installs dependencies
+make generate BUNDLES=5 # builds a question bank; the repository ships without one
+make run                # http://127.0.0.1:5000
 ```
+
+The bank is not in the repository — it is built locally, either from this
+project's templates (`make generate`) or from an export you supply — so
+`make generate` is part of a first run. Without it the API answers `bank_empty`.
 
 `make run` starts Flask, which serves both the API and the frontend, so a single
 URL is enough. To do it by hand:
@@ -81,7 +86,8 @@ backend/
     services/
       accounts.py        registration, login, sessions
       attempts.py        saved test history
-      question_bank.py   reads and caches the bundle file
+      question_bank.py   serves bundles from the database, else from the file
+      bank_store.py      the bank held in the database, one row per test
       test_builder.py    orders and numbers a module's questions
     bank/
       taxonomy.py        the Digital SAT content domains and their skills
@@ -94,8 +100,9 @@ backend/
       templates/         the question templates, by domain
       latex.py           LaTeX formatting helpers
     cli.py               validate / stats / blueprint / generate / import commands
+    cli_bank.py          the `bank` commands: keep the bank in the database
   data/
-    tests_bundle_cache.json   the question bank
+    tests_bundle_cache.json   the question bank (not committed; build it)
   tests/                 pytest suite (test_figures.py covers the diagrams)
   wsgi.py                dev server / gunicorn entry point
 
@@ -242,6 +249,31 @@ Module 1 is 7 easy, 8 medium and 7 hard questions; `module_2_LOWER` is 10 / 8 / 
 and `module_2_HIGHER` is 0 / 5 / 17, which is what makes the adaptive second
 module feel different.
 
+### Import the College Board bank
+
+`question-bank/` holds a local download of College Board's [SAT Suite Educator
+Question Bank](https://satsuiteeducatorquestionbank.collegeboard.org/) — 3,767
+questions, 1,922 of them maths. It is not in this repository (third-party
+content, and tens of megabytes); `question-bank/tools/` rebuilds it.
+
+`tools/to_bank.py` converts the maths questions into this project's format and
+`app.cli import` assembles them into blueprint-shaped tests:
+
+```bash
+cd question-bank && python3 tools/to_bank.py -o math-questions.json
+cd ../backend && .venv/bin/python -m app.cli import ../question-bank/math-questions.json --bundles 14 --force
+```
+
+1,917 of the 1,922 maths questions convert; the other five state their answer
+only inside the worked solution, and a guessed key is worse than a missing
+question. Presentation MathML becomes LaTeX (`tools/mathml.py`), inline figures
+move into `image`, and tables stay in the prompt with the class the frontend
+styles.
+
+**14 is the most tests the pool sustains.** The blueprint wants 7–10 Advanced
+Math questions per module and the bank is thinner there than the tables assume,
+so a 15th test starts drifting outside the domain ranges.
+
 ### Import questions you already have
 
 `app.cli import` reads a `.json` or `.csv` file **from your own disk** and maps
@@ -379,7 +411,7 @@ Backend settings come from environment variables — see `backend/.env.example`.
 | -------------------- | ------------------------------ | ------- |
 | `FLASK_ENV`          | `development`                  | `development` / `production` / `testing` |
 | `HOST`, `PORT`       | `127.0.0.1`, `5000`            | Bind address for `wsgi.py` |
-| `QUESTION_BANK_PATH` | `backend/data/tests_bundle_cache.json` | Question bank location |
+| `QUESTION_BANK_PATH` | `backend/data/tests_bundle_cache.json` | Question bank file, used when the database holds no bank |
 | `CORS_ORIGINS`       | `*`                            | Comma-separated allowed browser origins |
 | `SERVE_FRONTEND`     | `1` (`0` in production)        | Also serve `public/` from Flask |
 | `DATABASE_URL`       | unset                          | Postgres URL; overrides `DATABASE_PATH`. `POSTGRES_URL` also works |
@@ -400,7 +432,8 @@ The repository is ready to deploy as-is, with no build step:
 
 **A database is required.** Serverless functions get a read-only, throwaway
 filesystem, so the SQLite file used locally cannot persist there — accounts and
-history would disappear between requests. Create a Postgres database in the
+history would disappear between requests. It also carries the question bank,
+which is not in the repository (see below). Create a Postgres database in the
 Vercel dashboard (Storage → Create → Postgres) and attach it to the project.
 That sets `POSTGRES_URL` automatically, which the app picks up; use the pooled
 URL, since every request opens its own connection.
@@ -419,6 +452,36 @@ vercel deploy
 ```
 
 The schema is created on the first request, so there is no migration step.
+
+#### Getting the question bank there
+
+The bank is not committed, so a Git deployment builds without one. Push it into
+the database instead — the app reads the bank from there when it holds one, and
+falls back to the file otherwise:
+
+```bash
+cd backend
+.venv/bin/python -m app.cli bank --database "$POSTGRES_URL" push
+.venv/bin/python -m app.cli bank --database "$POSTGRES_URL" status
+```
+
+Each test is one row, so serving a module reads a single test rather than the
+whole bank — which matters when every request is a cold function. Push again
+after rebuilding the bank; the old rows are replaced in one transaction.
+`bank clear` empties it again and hands the app back to the file.
+
+`--database` belongs to the `bank` group, so it goes before the action, the
+same way it does for `users`.
+
+| Command | What it does |
+| ------- | ------------ |
+| `bank … push [--bank PATH]` | Validate a bank file and store it, replacing what was there |
+| `bank … status` | How many tests are stored, and when they were pushed |
+| `bank … pull -o PATH` | Write the stored bank back out to a file |
+| `bank … clear --yes` | Empty it; the app falls back to the bank file |
+
+An unreachable database never takes the bank down: if it cannot be read the
+file answers instead, so the app keeps serving before one is attached.
 
 Run the admin commands against the deployed database by passing its URL:
 

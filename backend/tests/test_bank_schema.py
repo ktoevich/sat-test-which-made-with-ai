@@ -108,3 +108,21 @@ def test_summarise_counts_by_dimension():
     assert counts["questions"] == 3
     assert counts["by_type"] == {"MCQ": 2, "SPR": 1}
     assert counts["by_difficulty"] == {"Easy": 2, "Hard": 1}
+
+
+def test_accepted_answers_must_be_a_usable_list():
+    """A grid-in's alternative answers decide whether a student is marked right."""
+    base = make_question("x", "SPR", "Easy")
+
+    assert schema.validate_question(base | {"accepted_answers": ["1/4", "0.25"]}, "$") == []
+    assert schema.validate_question(base | {"accepted_answers": None}, "$") == []
+
+    for bad in ("1/4", [""], ["ok", "  "]):
+        issues = schema.validate_question(base | {"accepted_answers": bad}, "$")
+        assert any("accepted_answers" in issue.path for issue in issues), bad
+
+
+def test_multiple_choice_answers_take_no_alternatives():
+    question = make_question("x", "MCQ", "Easy") | {"accepted_answers": ["B"]}
+    issues = schema.validate_question(question, "$")
+    assert any("accepted_answers" in issue.path for issue in issues)

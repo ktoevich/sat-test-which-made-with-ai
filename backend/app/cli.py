@@ -6,6 +6,7 @@
     python -m app.cli generate --bundles 3 -o data/tests_bundle_cache.json
     python -m app.cli import export.csv --bundles 2 -o data/tests_bundle_cache.json
     python -m app.cli export -o ../answer-keys
+    python -m app.cli bank --database "$POSTGRES_URL" push
     python -m app.cli users list
     python -m app.cli users reset-password student@example.com
 
@@ -39,7 +40,7 @@ from .bank import (
 from .bank import blueprint as blueprint_tables
 from .bank.importer import ImportError_
 from .config import BaseConfig
-from . import cli_users
+from . import cli_bank, cli_users
 
 DEFAULT_BANK = BaseConfig.QUESTION_BANK_PATH
 DEFAULT_DATABASE = BaseConfig.DATABASE_URL or BaseConfig.DATABASE_PATH
@@ -231,6 +232,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_build_arguments(importer, "sat-imported")
     importer.set_defaults(func=cmd_import)
 
+    cli_bank.register(sub, DEFAULT_DATABASE, DEFAULT_BANK)
     cli_users.register(sub, DEFAULT_DATABASE, BaseConfig.PASSWORD_ITERATIONS)
 
     return parser

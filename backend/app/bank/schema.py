@@ -74,7 +74,25 @@ def validate_question(question: Any, path: str) -> list[Issue]:
         issues.append(Issue(f"{path}.options", "SPR questions must not carry options"))
 
     issues.extend(_validate_image(question.get("image"), f"{path}.image"))
+    issues.extend(_validate_accepted(question, path))
     return issues
+
+
+def _validate_accepted(question: dict, path: str) -> list[Issue]:
+    """``accepted_answers`` lists the other forms a grid-in answer may take.
+
+    A grid-in often has several right spellings — ``0.25`` and ``1/4`` are the
+    same answer — and the app marks any of them correct, so a malformed list
+    here would silently fail a student who answered correctly.
+    """
+    accepted = question.get("accepted_answers")
+    if accepted is None:
+        return []
+    if not isinstance(accepted, list) or not all(str(value).strip() for value in accepted):
+        return [Issue(f"{path}.accepted_answers", "must be a list of non-empty answers")]
+    if question.get("type") == "MCQ":
+        return [Issue(f"{path}.accepted_answers", "MCQ answers are a single option letter")]
+    return []
 
 
 def _validate_choices(question: dict, path: str) -> list[Issue]:
