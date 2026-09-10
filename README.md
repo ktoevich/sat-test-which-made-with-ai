@@ -442,8 +442,13 @@ Then set one more environment variable in the project settings:
 
 | Variable | Value | Why |
 | -------- | ----- | --- |
-| `FLASK_ENV` | `production` | Turns off debug and lets the CDN serve the frontend |
-| `CORS_ORIGINS` | your deployment origin | Replaces the `*` default |
+| `CORS_ORIGINS` | your deployment origin | Replaces the `*` default, which lets any site call the API |
+| `FLASK_ENV` | `production` | Optional on Vercel: `VERCEL_ENV=production` already selects it |
+
+Debug mode is the one setting that must not be wrong in production, so the
+app does not rely on remembering it: with no `FLASK_ENV`, a host that reports
+`VERCEL_ENV=production` gets the production config. Setting `FLASK_ENV`
+explicitly still wins, and is what other hosts need.
 
 Deploy by connecting the Git repository, or from the CLI:
 

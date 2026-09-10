@@ -44,3 +44,31 @@ def test_unknown_api_path_returns_json(client):
     response = client.get("/api/nope")
     assert response.status_code == 404
     assert response.get_json()["error"]["code"] == "not_found"
+
+
+def test_an_unexpected_error_is_answered_with_the_envelope(app, client, monkeypatch):
+    """A bug must never be answered with a stack trace.
+
+    Werkzeug's 500 page carries file paths, source lines and whatever a driver
+    put in its message — for a failed connection, that can include the
+    database URL.
+    """
+    bank = app.extensions["question_bank"]
+    monkeypatch.setattr(
+        type(bank), "random_bundle", lambda self, **kw: 1 / 0, raising=True
+    )
+
+    response = client.get("/api/tests/module-1")
+    assert response.status_code == 500
+
+    body = response.get_json()
+    assert body["error"]["code"] == "internal_error"
+    assert "ZeroDivisionError" not in response.get_data(as_text=True)
+    assert "Traceback" not in response.get_data(as_text=True)
+
+
+def test_a_missing_endpoint_still_reads_as_not_found(client):
+    """The catch-all must not swallow the ordinary HTTP errors."""
+    response = client.get("/api/nope")
+    assert response.status_code == 404
+    assert response.get_json()["error"]["code"] == "not_found"
