@@ -56,3 +56,23 @@ def test_the_postgres_driver_is_only_needed_for_deployment():
     """Local development runs on SQLite, so psycopg belongs to the deploy file."""
     assert "psycopg" in pins(DEPLOY_REQUIREMENTS)
     assert "psycopg" not in pins(BACKEND_REQUIREMENTS)
+
+
+def test_a_serverless_production_host_does_not_get_debug_mode(monkeypatch):
+    """FLASK_ENV is easy to forget; the platform already knows the answer."""
+    from app.config import DevelopmentConfig, ProductionConfig, get_config
+
+    monkeypatch.delenv("FLASK_ENV", raising=False)
+    monkeypatch.setenv("VERCEL_ENV", "production")
+    assert get_config() is ProductionConfig
+
+    monkeypatch.setenv("VERCEL_ENV", "preview")
+    assert get_config() is DevelopmentConfig
+
+    monkeypatch.delenv("VERCEL_ENV", raising=False)
+    assert get_config() is DevelopmentConfig
+
+    # An explicit setting always wins.
+    monkeypatch.setenv("VERCEL_ENV", "production")
+    monkeypatch.setenv("FLASK_ENV", "development")
+    assert get_config() is DevelopmentConfig

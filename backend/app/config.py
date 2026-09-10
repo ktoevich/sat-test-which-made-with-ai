@@ -89,7 +89,20 @@ CONFIGS = {
 }
 
 
+def _default_environment() -> str:
+    """The environment to assume when ``FLASK_ENV`` says nothing.
+
+    Development is the right default on a laptop, but it turns Flask's debug
+    mode on, and a serverless host that forgot the variable would then answer
+    an unexpected exception with a traceback. When the platform already says
+    it is running production, believe it.
+    """
+    if os.environ.get("VERCEL_ENV") == "production":
+        return "production"
+    return "development"
+
+
 def get_config(name: str | None = None) -> type[BaseConfig]:
     """Resolve a config class by name, falling back to ``FLASK_ENV``."""
-    key = (name or os.environ.get("FLASK_ENV") or "development").lower()
+    key = (name or os.environ.get("FLASK_ENV") or _default_environment()).lower()
     return CONFIGS.get(key, DevelopmentConfig)
