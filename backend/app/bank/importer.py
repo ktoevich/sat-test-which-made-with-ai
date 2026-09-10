@@ -37,6 +37,9 @@ FIELD_ALIASES = {
     "body": "text",
     "answer": "answer",
     "correctanswer": "answer",
+    "acceptedanswers": "accepted_answers",
+    "alternateanswers": "accepted_answers",
+    "answervariants": "accepted_answers",
     "correct": "answer",
     "key": "answer",
     "rationale": "rationale",
@@ -256,7 +259,35 @@ def normalise_question(row: dict[str, Any], *, index: int) -> Question:
     }
     if qtype == "MCQ":
         question["options"] = options
+
+    # A grid-in can have several right spellings — "0.25" and "1/4" are the
+    # same answer — and dropping them here would fail a correct student.
+    accepted = _normalise_accepted(mapped.get("accepted_answers"), answer, qtype)
+    if accepted:
+        question["accepted_answers"] = accepted
     return question
+
+
+def _normalise_accepted(value: Any, answer: str, qtype: str) -> list[str]:
+    """The alternative answers, minus the one already stored as ``answer``."""
+    if qtype == "MCQ" or value in (None, ""):
+        return []
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except ValueError:
+            value = [part for part in re.split(r"[|;]", value)]
+    if not isinstance(value, (list, tuple)):
+        return []
+
+    seen = {answer.strip().upper()}
+    accepted: list[str] = []
+    for item in value:
+        text = str(item).strip()
+        if text and text.upper() not in seen:
+            seen.add(text.upper())
+            accepted.append(text)
+    return accepted
 
 
 def import_questions(

@@ -130,3 +130,34 @@ def test_skip_invalid_collects_problems_instead_of_raising():
 
     with pytest.raises(ImportError_):
         import_questions(rows)
+
+
+def test_accepted_answers_survive_the_import():
+    """The alternatives decide whether a correct student is marked correct."""
+    row = {
+        "text": "What is one possible solution?",
+        "answer": "0.25",
+        "type": "SPR",
+        "accepted_answers": ["1/4", "0.25"],
+    }
+    question = normalise_question(row, index=1)
+    # The one already stored as `answer` is not repeated.
+    assert question["accepted_answers"] == ["1/4"]
+
+
+def test_accepted_answers_arrive_as_a_string_too():
+    """A CSV column cannot hold a list, so both spellings are read."""
+    for value in ('["1/4", "0.25"]', "1/4|0.25", "1/4;0.25"):
+        question = normalise_question(
+            {"text": "q", "answer": "0.25", "type": "SPR", "accepted_answers": value}, index=1
+        )
+        assert question["accepted_answers"] == ["1/4"], value
+
+
+def test_multiple_choice_keeps_no_alternatives():
+    question = normalise_question(
+        {"text": "q", "answer": "B", "option_a": "1", "option_b": "2",
+         "option_c": "3", "option_d": "4", "accepted_answers": ["C"]},
+        index=1,
+    )
+    assert "accepted_answers" not in question
