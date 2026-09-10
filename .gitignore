@@ -14,6 +14,10 @@ backend/data/app.db-shm
 # Generated answer keys (never publish)
 answer-keys/
 
+# Local copy of College Board's question bank: third-party content, and the
+# raw dump is tens of megabytes. Rebuild it with question-bank/tools/.
+question-bank/
+
 # Environment
 .env
 .env.local

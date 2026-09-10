@@ -235,6 +235,21 @@
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
+/* Standalone diagrams: triangles, bar charts, crossing lines. Unlike the
+   coordinate grid these carry their own labels, so they are only bounded, not
+   forced to a square. */
+.question-diagram {
+  display: block;
+  width: 100%;
+  max-width: 340px;
+  max-height: 300px;
+  margin: 0 auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
 /* Tables embedded in a question prompt (two-way frequency data). */
 .question-table {
   width: 100%;

@@ -4,10 +4,24 @@ from __future__ import annotations
 
 import random
 
+from fractions import Fraction
+
+from .. import figures
 from ..latex import fraction, linear, number, paren, sum_terms, tex, term
 from .base import Question, Template, nonzero, numeric_variants, pick_distractors
 
 DOMAIN = "Algebra"
+
+
+def _line_alt(slope, intercept: int) -> str:
+    """Prose description of a graphed line, for the export and screen readers."""
+    step = abs(slope)
+    direction = "rises" if slope > 0 else "falls"
+    return (
+        f"Coordinate-plane graph. A line is graphed in the xy-plane. It crosses the y-axis at "
+        f"(0, {number(intercept)}) and {direction} {number(step)} unit"
+        f"{'' if step == 1 else 's'} for every 1 unit to the right."
+    )
 
 
 class LinearEquationTemplate(Template):
@@ -171,6 +185,96 @@ class SlopeTemplate(Template):
         )
 
 
+class SlopeFromGraphTemplate(Template):
+    """Read the slope or the ``y``-intercept off a line drawn on a grid.
+
+    The blueprint's Linear functions row asks for exactly this — "simple
+    graphs: find the slope or an intercept" — so the question ships the graph
+    and the student reads the answer off it rather than off a pair of points.
+    """
+
+    key = "slope_from_graph"
+    domain = DOMAIN
+    skill = "Linear functions"
+    types = ("MCQ", "SPR")
+
+    GRID_END = 8
+
+    def build(self, rng: random.Random, qtype: str, difficulty: str) -> Question:
+        rise, run = self._gradient(rng, difficulty)
+        intercept = rng.randint(-4, 4)
+        slope = Fraction(rise, run)
+
+        # The line runs edge to edge, the way a graphed line looks on the test.
+        (x1, y1), (x2, y2) = figures.clip_line(slope, intercept, self.GRID_END)
+
+        image = {
+            "xEnd": self.GRID_END,
+            "yEnd": self.GRID_END,
+            "step": 2,
+            "alt": _line_alt(slope, intercept),
+            "draw": (
+                f'<line x1="{x1:g}" y1="{y1:g}" x2="{x2:g}" y2="{y2:g}" '
+                f'stroke="#2563eb" stroke-width="2"/>'
+                f'<circle cx="0" cy="{intercept}" r="0.18" fill="#2563eb"/>'
+            ),
+        }
+
+        # A grid-in cannot take a fraction bar drawn as LaTeX, so it only ever
+        # asks for the intercept, which is always a whole number here.
+        wants_slope = qtype != "SPR" and rng.choice([True, True, False])
+        if wants_slope:
+            answer = fraction(rise, run)
+            question = "What is the slope of the line?"
+            rationale = (
+                f"Reading two lattice points off the line, {tex('y')} changes by "
+                f"{number(rise)} for every {number(run)} of change in {tex('x')}, so the slope is "
+                f"{tex(answer)}."
+            )
+            wrong = [
+                fraction(run, rise),
+                fraction(-rise, run),
+                number(intercept),
+                fraction(rise + run, run),
+            ]
+        else:
+            answer = number(intercept)
+            question = f"At what value of {tex('y')} does the line cross the {tex('y')}-axis?"
+            rationale = (
+                f"The line meets the {tex('y')}-axis at {tex(f'(0, {answer})')}, so the "
+                f"{tex('y')}-intercept is {tex(answer)}."
+            )
+            wrong = [number(-intercept), fraction(rise, run), number(intercept + 1), number(intercept - 2)]
+
+        text = f"The graph above shows a line in the {tex('xy')}-plane. {question}"
+        if qtype == "SPR":
+            return self.spr(
+                text=text, answer=answer, rationale=rationale, difficulty=difficulty, image=image
+            )
+
+        return self.mcq(
+            text=text,
+            correct=tex(answer),
+            distractors=[tex(value) for value in pick_distractors(answer, wrong, pad=numeric_variants(float(slope) if wants_slope else intercept))],
+            rationale=rationale,
+            difficulty=difficulty,
+            rng=rng,
+            image=image,
+        )
+
+    def _gradient(self, rng: random.Random, difficulty: str) -> tuple[int, int]:
+        """Rise and run, kept readable off a grid ruled every 2 units."""
+        if difficulty == "Hard":
+            run = rng.choice([2, 3, 4])
+            rise = nonzero(rng, -5, 5)
+            while Fraction(rise, run).denominator == 1:
+                rise = nonzero(rng, -5, 5)
+            return rise, run
+        if difficulty == "Medium":
+            return nonzero(rng, -4, 4), 1
+        return nonzero(rng, 1, 3), 1
+
+
 class LineGraphTemplate(Template):
     """Read the equation of a line drawn on a coordinate grid."""
 
@@ -186,11 +290,10 @@ class LineGraphTemplate(Template):
         slope = nonzero(rng, -3, 3)
         intercept = rng.randint(-4, 4)
 
-        # Keep both endpoints of the drawn segment inside the grid.
-        span = min(self.GRID_END, (self.GRID_END - abs(intercept)) // max(1, abs(slope)))
-        span = max(2, span)
-        x1, x2 = -span, span
-        y1, y2 = slope * x1 + intercept, slope * x2 + intercept
+        # Run the line out to the edge of the grid. Flooring a span to a whole
+        # number instead would push a steep line off the grid, where the browser
+        # silently clips it.
+        (x1, y1), (x2, y2) = figures.clip_line(slope, intercept, self.GRID_END)
 
         equation = f"y = {linear(slope, intercept)}"
         answer = tex(equation)
@@ -221,8 +324,9 @@ class LineGraphTemplate(Template):
             "xEnd": self.GRID_END,
             "yEnd": self.GRID_END,
             "step": 2,
+            "alt": _line_alt(slope, intercept),
             "draw": (
-                f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="#2563eb" stroke-width="2"/>'
+                f'<line x1="{x1:g}" y1="{y1:g}" x2="{x2:g}" y2="{y2:g}" stroke="#2563eb" stroke-width="2"/>'
                 f'<circle cx="0" cy="{intercept}" r="0.18" fill="#2563eb"/>'
             ),
         }
@@ -374,3 +478,4 @@ class LinearInequalityTemplate(Template):
 
 
 TEMPLATES.append(LinearInequalityTemplate())
+TEMPLATES.append(SlopeFromGraphTemplate())

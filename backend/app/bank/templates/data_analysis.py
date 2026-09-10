@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import random
 
+from .. import figures
 from ..latex import fraction, number, tex
-from .base import Question, Template, nonzero, numeric_variants, pick_distractors
+from .base import Question, Template, TemplateError, nonzero, numeric_variants, pick_distractors
 
 DOMAIN = "Problem-Solving and Data Analysis"
 
@@ -203,6 +204,11 @@ class ScatterplotTemplate(Template):
             "xEnd": self.GRID_END,
             "yEnd": self.GRID_END,
             "step": 2,
+            "alt": (
+                f"Scatterplot. {len(points)} points are plotted in the xy-plane, scattered closely "
+                f"about a line of best fit that crosses the y-axis at (0, {number(intercept)}) and "
+                f"has slope {number(slope)}."
+            ),
             "draw": (
                 f'<line x1="{-span}" y1="{slope * -span + intercept}" '
                 f'x2="{span}" y2="{slope * span + intercept}" stroke="#2563eb" stroke-width="2"/>'
@@ -430,11 +436,112 @@ class StatisticalClaimTemplate(Template):
         )
 
 
+class BarChartTemplate(Template):
+    """Read one-variable data off a bar graph.
+
+    The blueprint's easier route asks for exactly this — "reading bar charts" —
+    and one-variable data is the skill that carries a chart most often on the
+    real test, so the figure is the question rather than decoration.
+    """
+
+    key = "bar_chart"
+    domain = DOMAIN
+    skill = "One-variable data: distributions and measures of center and spread"
+    types = ("MCQ", "SPR")
+
+    #: (chart title, value-axis title, what one bar is, the category names).
+    SETTINGS = (
+        ("Books Read", "Number of books", "day", ("Mon", "Tue", "Wed", "Thu")),
+        ("Tickets Sold", "Number of tickets", "week", ("Week 1", "Week 2", "Week 3", "Week 4")),
+        ("Daily Rainfall", "Rainfall (mm)", "day", ("Mon", "Tue", "Wed", "Thu", "Fri")),
+        ("Cars Serviced", "Number of cars", "month", ("Jan", "Feb", "Mar", "Apr")),
+        ("Trees Planted", "Number of trees", "region", ("North", "South", "East", "West")),
+    )
+
+    def build(self, rng: random.Random, qtype: str, difficulty: str) -> Question:
+        title, axis_title, unit, categories = rng.choice(self.SETTINGS)
+        count = len(categories)
+
+        mean = rng.randint(8, 24) if difficulty == "Hard" else None
+        values = self._bars(rng, count, mean)
+
+        image = figures.bar_chart(
+            categories=categories, values=values, axis_title=axis_title, title=title
+        )
+        readings = dict(zip(categories, values))
+        thing = axis_title[0].lower() + axis_title[1:]
+
+        if mean is not None:
+            answer = number(mean)
+            question = f"What is the mean of the {count} values shown?"
+            rationale = (
+                f"The bars total {tex(number(sum(values)))}; dividing by {count} gives {tex(answer)}."
+            )
+            wrong = [number(max(values)), number(sum(values)), number(min(values)), number(mean + 1)]
+        elif difficulty == "Medium":
+            high = max(readings, key=readings.get)
+            low = min(readings, key=readings.get)
+            gap = readings[high] - readings[low]
+            answer = number(gap)
+            question = f"How much greater is the {thing} for {high} than for {low}?"
+            rationale = (
+                f"{high} shows {tex(number(readings[high]))} and {low} shows "
+                f"{tex(number(readings[low]))}, a difference of {tex(answer)}."
+            )
+            wrong = [number(readings[high]), number(readings[low]), number(sum(values)), number(gap + 2)]
+        else:
+            pick = rng.choice(categories)
+            answer = number(readings[pick])
+            question = f"What is the {thing} for {pick}?"
+            rationale = f"The bar for {pick} reaches {tex(answer)}."
+            wrong = [
+                number(v) for v in values if v != readings[pick]
+            ] + [number(sum(values))]
+
+        text = (
+            f"The bar graph above shows the {thing} recorded for each {unit}. {question}"
+        )
+
+        if qtype == "SPR":
+            return self.spr(
+                text=text, answer=answer, rationale=rationale, difficulty=difficulty, image=image
+            )
+
+        return self.mcq(
+            text=text,
+            correct=answer,
+            distractors=pick_distractors(answer, wrong, pad=numeric_variants(int(answer))),
+            rationale=rationale,
+            difficulty=difficulty,
+            rng=rng,
+            image=image,
+        )
+
+    @staticmethod
+    def _bars(rng: random.Random, count: int, mean: int | None) -> list[int]:
+        """Bar heights, all distinct so "the greatest" is never ambiguous.
+
+        When ``mean`` is given the heights are drawn around it and the last one
+        is forced, so the average the question asks for comes out whole.
+        """
+        for _ in range(200):
+            if mean is None:
+                values = [rng.randint(3, 30) for _ in range(count)]
+            else:
+                values = [mean + nonzero(rng, -5, 5) for _ in range(count - 1)]
+                values.append(mean * count - sum(values))
+                rng.shuffle(values)
+            if len(set(values)) == count and all(2 <= value <= 40 for value in values):
+                return values
+        raise TemplateError("bar_chart: could not draw distinct bars")
+
+
 TEMPLATES.extend(
     [
         ScatterplotTemplate(),
         ProbabilityTableTemplate(),
         MarginOfErrorTemplate(),
         StatisticalClaimTemplate(),
+        BarChartTemplate(),
     ]
 )

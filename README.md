@@ -86,6 +86,7 @@ backend/
     bank/
       taxonomy.py        the Digital SAT content domains and their skills
       blueprint.py       the module structure from SAT test structure/
+      figures.py         SVG diagrams: triangles, bar charts, crossing lines
       schema.py          validation rules for a bank file
       importer.py        normalises an export you already have
       generator.py       builds original questions from templates
@@ -95,7 +96,7 @@ backend/
     cli.py               validate / stats / blueprint / generate / import commands
   data/
     tests_bundle_cache.json   the question bank
-  tests/                 pytest suite
+  tests/                 pytest suite (test_figures.py covers the diagrams)
   wsgi.py                dev server / gunicorn entry point
 
 public/                  the frontend, served straight from the CDN
@@ -199,9 +200,24 @@ Templates declare which domain and skill they cover, and the test suite fails if
 a template names something outside the taxonomy or if a skill has no template,
 so coverage cannot silently regress.
 
+### Figures
+
+Rows in the reference tables that describe a picture — "basic linear graphs",
+"reading bar charts", "adjacent and vertical angles", "harder parabolas, graph
+shifts" — are served by templates that draw one. 9 of the 25 templates ship a
+figure, and about 29% of a generated bank carries one, against 0-58% per skill
+in College Board's own published bank.
+
+Two kinds reach the browser. Anything on the `xy`-plane ships the coordinate-grid
+descriptor and `public/src/core/coordinate-grid.js` draws the axes around it;
+everything else — a triangle, a bar chart, two crossing lines — is built by
+`app/bank/figures.py` and ships as finished SVG. `tests/test_figures.py` checks
+that every topic whose row asks for a picture can still be served one, that the
+SVG parses, and that nothing is drawn outside its own grid.
+
 ### Generate original questions
 
-`app.cli generate` builds questions from this project's own templates — 21 of
+`app.cli generate` builds questions from this project's own templates — 25 of
 them, at least one per skill, each parameterised by difficulty. Every module is
 planned from the blueprint, so a generated bank follows the subtopic tables in
 `SAT test structure/` rather than whatever the templates happen to produce.
@@ -268,7 +284,9 @@ so a broken bank never reaches `data/`.
 
 Subclass `Template` in the matching `app/bank/templates/*.py` module, implement
 `build(rng, qtype, difficulty)`, and append the instance to that module's
-`TEMPLATES` list. Its `domain` and `skill` must come from `taxonomy.py`. `tests/test_generator.py` then fuzzes it automatically: every
+`TEMPLATES` list. Pass `image=` to `mcq()` or `spr()` to attach a figure —
+either a descriptor for a coordinate grid or a helper from `app/bank/figures.py`
+for a standalone diagram. Its `domain` and `skill` must come from `taxonomy.py`. `tests/test_generator.py` then fuzzes it automatically: every
 template is built 120 times per type and difficulty and checked against the
 schema, including that its multiple-choice options stay distinct.
 
@@ -344,7 +362,11 @@ A question:
   module, so the served module runs easy to hard with grid-ins mixed in, the
   way the real test does.
 - `image` is optional: either raw SVG/HTML, or a coordinate-grid descriptor
-  `{ "xEnd": 10, "yEnd": 10, "step": 2, "draw": "<svg fragment>" }`.
+  `{ "xEnd": 10, "yEnd": 10, "step": 2, "alt": "…", "draw": "<svg fragment>" }`.
+  Both kinds describe themselves in prose — a grid through its `alt`, a
+  standalone diagram through the `aria-label` on its `<svg>`. That text is what
+  a screen reader announces and what `app.cli export` prints in place of the
+  drawing, so a question stays answerable away from the browser.
 
 The file is re-read automatically when its modification time changes, so a
 regenerated bank is picked up without restarting the server.
