@@ -14,6 +14,11 @@ backend/data/app.db-shm
 # Generated answer keys (never publish)
 answer-keys/
 
+# The question bank. It is built locally — from the templates, or from a
+# third-party export — and reaches a deployment through `app.cli bank push`
+# rather than through the repository.
+backend/data/tests_bundle_cache.json
+
 # Local copy of College Board's question bank: third-party content, and the
 # raw dump is tens of megabytes. Rebuild it with question-bank/tools/.
 question-bank/

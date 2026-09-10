@@ -8,6 +8,13 @@ node_modules/
 __pycache__/
 *.pyc
 
+# The question bank travels in the database, not in the deployment.
+backend/data/tests_bundle_cache.json
+
+# The local copy of College Board's bank: tens of megabytes, and only the
+# tools that build from it ever need it.
+question-bank/
+
 # The local SQLite database is never used in production.
 backend/data/app.db
 backend/data/app.db-wal

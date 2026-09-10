@@ -49,7 +49,9 @@ def _reset(url: str) -> None:
     """Drop every table so each test starts from an empty database."""
     database = connect(url)
     try:
-        database.execute("DROP TABLE IF EXISTS attempts, sessions, users CASCADE")
+        database.execute(
+            "DROP TABLE IF EXISTS attempts, sessions, users, question_bundles CASCADE"
+        )
         database.commit()
     finally:
         database.close()

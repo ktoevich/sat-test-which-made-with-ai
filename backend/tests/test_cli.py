@@ -118,3 +118,47 @@ def test_import_can_skip_unusable_rows(tmp_path, capsys):
     assert main(["import", str(source), "--skip-invalid", "--module-size", "3", "--spr", "1",
                  "--seed", "1", "-o", str(tmp_path / "out.json")]) == 0
     assert "skipped:" in capsys.readouterr().err
+
+
+# -- the bank command group ------------------------------------------------
+
+
+def test_bank_push_then_status_then_clear(tmp_path, capsys, bundle):
+    """The round trip an operator does before a deploy."""
+    bank = tmp_path / "bank.json"
+    bank.write_text(json.dumps([bundle]), encoding="utf-8")
+    database = tmp_path / "bank.db"
+
+    assert main(["bank", "--database", str(database), "push", "--bank", str(bank)]) == 0
+    assert "pushed 1 test(s)" in capsys.readouterr().out
+
+    assert main(["bank", "--database", str(database), "status"]) == 0
+    assert "bundle-1" in capsys.readouterr().out
+
+    out = tmp_path / "pulled.json"
+    assert main(["bank", "--database", str(database), "pull", "-o", str(out)]) == 0
+    assert json.loads(out.read_text()) == [bundle]
+
+    # Clearing is refused without --yes, so a bank is never dropped by accident.
+    assert main(["bank", "--database", str(database), "clear"]) == 1
+    assert main(["bank", "--database", str(database), "clear", "--yes"]) == 0
+    assert "removed 1 test(s)" in capsys.readouterr().out
+
+
+def test_bank_push_refuses_a_bank_that_would_not_validate(tmp_path, capsys):
+    """A bank that could not be written to disk must not reach the database."""
+    broken = tmp_path / "broken.json"
+    broken.write_text(json.dumps([{"test_id": "x", "module_1": []}]), encoding="utf-8")
+
+    database = tmp_path / "b.db"
+    assert main(["bank", "--database", str(database), "push", "--bank", str(broken)]) == 1
+    assert "did not pass validation" in capsys.readouterr().err
+    # The check runs before the connection is opened, so nothing was touched.
+    assert not database.exists()
+
+
+def test_bank_push_reports_a_missing_file(tmp_path):
+    with pytest.raises(SystemExit):
+        main(
+            ["bank", "--database", str(tmp_path / "b.db"), "push", "--bank", str(tmp_path / "no.json")]
+        )

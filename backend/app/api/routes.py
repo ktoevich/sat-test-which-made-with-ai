@@ -18,7 +18,7 @@ def _bank():
 def health():
     """Liveness probe that also reports whether any test is ready to serve."""
     bank = _bank()
-    return jsonify({"status": "ok", "tests_available": len(bank.load())})
+    return jsonify({"status": "ok", "tests_available": bank.count()})
 
 
 @bp.get("/tests/module-1")

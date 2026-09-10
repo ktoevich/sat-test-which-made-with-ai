@@ -39,6 +39,10 @@ def schema_statements(dialect: str) -> list[str]:
 
     Emails are lower-cased before they are stored or looked up, so a plain
     UNIQUE constraint gives case-insensitive accounts on both engines.
+
+    ``question_bundles`` holds the question bank for deployments that cannot
+    ship it in the repository; one row per test, so serving a module does not
+    read the whole bank.
     """
     return [
         f"""
@@ -73,6 +77,15 @@ def schema_statements(dialect: str) -> list[str]:
         )
         """,
         "CREATE INDEX IF NOT EXISTS idx_attempts_user ON attempts(user_id, taken_at DESC)",
+        """
+        CREATE TABLE IF NOT EXISTS question_bundles (
+            test_id    TEXT    PRIMARY KEY,
+            position   INTEGER NOT NULL,
+            payload    TEXT    NOT NULL,
+            updated_at TEXT    NOT NULL
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_bundles_position ON question_bundles(position)",
     ]
 
 
