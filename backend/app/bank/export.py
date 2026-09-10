@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Iterable
 
-from . import blueprint
+from . import blueprint, figures
 from .schema import MODULE_KEYS, option_letter
 from .taxonomy import DIFFICULTIES, DOMAINS
 
@@ -33,13 +33,15 @@ def _answer_text(question: Question) -> str:
 def _figure(question: Question) -> list[str]:
     image = question.get("image")
     if isinstance(image, dict):
-        return [
-            f"*Figure: coordinate grid, x and y from "
-            f"−{image.get('xEnd')} to {image.get('yEnd')}.*",
-            "",
-        ]
+        described = image.get("alt") or (
+            f"coordinate grid, x and y from −{image.get('xEnd')} to {image.get('yEnd')}."
+        )
+        return [f"*Figure: {described}*", ""]
     if isinstance(image, str) and image and image != "null":
-        return ["*Figure omitted from this export.*", ""]
+        # Diagrams built by app.bank.figures describe themselves in prose, so
+        # the paper stays answerable even though the drawing cannot come along.
+        described = figures.label_of(image)
+        return [f"*Figure: {described}*" if described else "*Figure omitted from this export.*", ""]
     return []
 
 

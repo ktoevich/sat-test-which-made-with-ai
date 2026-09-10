@@ -39,14 +39,21 @@ function gridLines({ xEnd, yEnd, step, width, height, centerX, centerY }) {
   return parts.join('');
 }
 
+/** Escape a value for use inside a double-quoted SVG attribute. */
+function attribute(value) {
+  return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+}
+
 /** @returns {string} SVG markup for the described grid. */
-export function renderCoordinateGrid({ xEnd, yEnd, step, draw = '' }) {
+export function renderCoordinateGrid({ xEnd, yEnd, step, draw = '', alt = '' }) {
   const width = xEnd * 2 * PIXELS_PER_UNIT;
   const height = yEnd * 2 * PIXELS_PER_UNIT;
   const geometry = { xEnd, yEnd, step, width, height, centerX: width / 2, centerY: height / 2 };
+  // Without a description a screen reader announces nothing but "graphic".
+  const described = alt ? ` role="img" aria-label="${attribute(alt)}"` : '';
 
   return `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" class="coordinate-grid no-copy">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" class="coordinate-grid no-copy"${described}>
       <style>.graph-content * { vector-effect: non-scaling-stroke; }</style>
       ${gridLines(geometry)}
       <g class="graph-content" transform="translate(${geometry.centerX}, ${geometry.centerY}) scale(${PIXELS_PER_UNIT}, -${PIXELS_PER_UNIT})">

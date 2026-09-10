@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import random
 
+from .. import figures
 from ..latex import number, signed, tex
 from .base import Question, Template, nonzero, numeric_variants, pick_distractors
 
@@ -31,8 +32,8 @@ class RightTriangleTemplate(Template):
         if find_hypotenuse:
             answer = number(hypotenuse)
             text = (
-                f"In a right triangle, the legs have lengths {number(leg_a)} and {number(leg_b)}. "
-                "What is the length of the hypotenuse?"
+                f"The right triangle shown has legs of length {number(leg_a)} and {number(leg_b)}. "
+                f"What is the value of {tex('x')}, the length of its hypotenuse?"
             )
             rationale = (
                 f"By the Pythagorean theorem, "
@@ -42,16 +43,28 @@ class RightTriangleTemplate(Template):
         else:
             answer = number(leg_b)
             text = (
-                f"In a right triangle, the hypotenuse has length {number(hypotenuse)} and one leg has "
-                f"length {number(leg_a)}. What is the length of the other leg?"
+                f"In the right triangle shown, the hypotenuse has length {number(hypotenuse)} and one "
+                f"leg has length {number(leg_a)}. What is the value of {tex('x')}, the length of the "
+                "other leg?"
             )
             rationale = (
                 f"{tex(f'{number(hypotenuse)}^2 - {number(leg_a)}^2 = {number(leg_b ** 2)}')}, "
                 f"so the other leg is {tex(answer)}."
             )
 
+        image = figures.right_triangle(
+            base=leg_a,
+            height=leg_b,
+            base_label=number(leg_a),
+            height_label=number(leg_b) if find_hypotenuse else "x",
+            hypotenuse_label="x" if find_hypotenuse else number(hypotenuse),
+            unknown="hypotenuse" if find_hypotenuse else "height",
+        )
+
         if qtype == "SPR":
-            return self.spr(text=text, answer=answer, rationale=rationale, difficulty=difficulty)
+            return self.spr(
+                text=text, answer=answer, rationale=rationale, difficulty=difficulty, image=image
+            )
 
         distractors = pick_distractors(
             answer,
@@ -70,6 +83,7 @@ class RightTriangleTemplate(Template):
             rationale=rationale,
             difficulty=difficulty,
             rng=rng,
+            image=image,
         )
 
 
@@ -185,9 +199,13 @@ class TriangleAngleTemplate(Template):
         third = 180 - first - second
         answer = number(third)
 
+        image = figures.labelled_triangle(
+            angles=(first, second, third),
+            labels=(f"{number(first)}°", f"{number(second)}°", "x°"),
+        )
         text = (
-            f"Two angles of a triangle measure {number(first)}° and {number(second)}°. "
-            "What is the measure, in degrees, of the third angle?"
+            f"In the triangle shown, two angles measure {number(first)}° and {number(second)}°. "
+            f"What is the value of {tex('x')}, the measure in degrees of the third angle?"
         )
         rationale = (
             f"The angles of a triangle sum to 180°, so the third angle is "
@@ -195,7 +213,9 @@ class TriangleAngleTemplate(Template):
         )
 
         if qtype == "SPR":
-            return self.spr(text=text, answer=answer, rationale=rationale, difficulty=difficulty)
+            return self.spr(
+                text=text, answer=answer, rationale=rationale, difficulty=difficulty, image=image
+            )
 
         distractors = pick_distractors(
             answer,
@@ -214,6 +234,7 @@ class TriangleAngleTemplate(Template):
             rationale=rationale,
             difficulty=difficulty,
             rng=rng,
+            image=image,
         )
 
 
@@ -233,8 +254,14 @@ class AreaVolumeTemplate(Template):
             width, height = rng.randint(3, 15), rng.randint(3, 15)
             value = width * height
             text = (
-                f"A rectangle has a width of {number(width)} and a height of {number(height)}. "
-                "What is its area?"
+                f"The rectangle shown has a width of {number(width)} and a height of "
+                f"{number(height)}. What is its area?"
+            )
+            image = figures.rectangle(
+                width_value=width,
+                height_value=height,
+                width_label=number(width),
+                height_label=number(height),
             )
             rationale = f"Area is {tex(f'{number(width)} \\cdot {number(height)} = {number(value)}')}."
             wrong = [number(2 * (width + height)), number(width + height), number(value * 2)]
@@ -242,8 +269,14 @@ class AreaVolumeTemplate(Template):
             base, height = rng.choice([4, 6, 8, 10, 12, 14]), rng.randint(3, 15)
             value = base * height // 2
             text = (
-                f"A triangle has a base of {number(base)} and a height of {number(height)}. "
-                "What is its area?"
+                f"The triangle shown has a base of {number(base)} and a height of "
+                f"{number(height)}. What is its area?"
+            )
+            image = figures.triangle(
+                base_value=base,
+                height_value=height,
+                base_label=number(base),
+                height_label=number(height),
             )
             rationale = (
                 f"Area is {tex(f'\\frac{{1}}{{2}} \\cdot {number(base)} \\cdot {number(height)} = {number(value)}')}."
@@ -253,8 +286,14 @@ class AreaVolumeTemplate(Template):
             length, width, height = (rng.randint(2, 9) for _ in range(3))
             value = length * width * height
             text = (
-                f"A rectangular prism has edge lengths {number(length)}, {number(width)} and "
-                f"{number(height)}. What is its volume?"
+                f"The rectangular prism shown has edge lengths {number(length)}, {number(width)} "
+                f"and {number(height)}. What is its volume?"
+            )
+            image = figures.prism(
+                length=length,
+                width_value=width,
+                height_value=height,
+                labels=(number(length), number(width), number(height)),
             )
             rationale = (
                 f"Volume is {tex(f'{number(length)} \\cdot {number(width)} \\cdot {number(height)} = {number(value)}')}."
@@ -267,7 +306,9 @@ class AreaVolumeTemplate(Template):
 
         answer = number(value)
         if qtype == "SPR":
-            return self.spr(text=text, answer=answer, rationale=rationale, difficulty=difficulty)
+            return self.spr(
+                text=text, answer=answer, rationale=rationale, difficulty=difficulty, image=image
+            )
 
         return self.mcq(
             text=text,
@@ -276,7 +317,84 @@ class AreaVolumeTemplate(Template):
             rationale=rationale,
             difficulty=difficulty,
             rng=rng,
+            image=image,
         )
 
 
 TEMPLATES.append(AreaVolumeTemplate())
+class CrossingAnglesTemplate(Template):
+    """Vertical and adjacent angles at the intersection of two straight lines.
+
+    The blueprint's easier route asks for "adjacent and vertical angles", which
+    only means anything next to a picture: the question is which of the four
+    angles around the crossing point the label sits in.
+    """
+
+    key = "crossing_angles"
+    domain = DOMAIN
+    skill = "Lines, angles, and triangles"
+    types = ("MCQ", "SPR")
+    difficulties = ("Easy", "Medium")
+
+    CORNERS = ("upper right", "upper left", "lower left", "lower right")
+
+    def build(self, rng: random.Random, qtype: str, difficulty: str) -> Question:
+        given = rng.randint(25, 155)
+        while given == 90:
+            given = rng.randint(25, 155)
+
+        index = rng.randrange(4)
+        given_position = self.CORNERS[index]
+        # The angle straight across is equal; either neighbour is supplementary.
+        vertical = difficulty == "Easy"
+        offset = 2 if vertical else rng.choice([1, 3])
+        unknown_position = self.CORNERS[(index + offset) % 4]
+
+        answer = number(given if vertical else 180 - given)
+        rationale = (
+            (
+                f"The {unknown_position} angle is vertical to the {given_position} angle, and "
+                f"vertical angles are equal, so {tex(f'x = {answer}')}."
+            )
+            if vertical
+            else (
+                f"The {unknown_position} and {given_position} angles sit on a straight line, so they "
+                f"add to 180°: {tex(f'x = 180 - {number(given)} = {answer}')}."
+            )
+        )
+
+        image = figures.crossing_lines(
+            given=given, given_position=given_position, unknown_position=unknown_position
+        )
+        text = (
+            f"In the figure shown, two straight lines cross. What is the value of {tex('x')}?"
+        )
+
+        if qtype == "SPR":
+            return self.spr(
+                text=text, answer=answer, rationale=rationale, difficulty=difficulty, image=image
+            )
+
+        distractors = pick_distractors(
+            answer,
+            [
+                number(180 - int(answer)),
+                number(90 - given if given < 90 else given - 90),
+                number(360 - 2 * given) if 0 < 360 - 2 * given < 180 else number(given // 2),
+                number(int(answer) + 10),
+            ],
+            pad=numeric_variants(int(answer)),
+        )
+        return self.mcq(
+            text=text,
+            correct=answer,
+            distractors=distractors,
+            rationale=rationale,
+            difficulty=difficulty,
+            rng=rng,
+            image=image,
+        )
+
+
+TEMPLATES.append(CrossingAnglesTemplate())
+

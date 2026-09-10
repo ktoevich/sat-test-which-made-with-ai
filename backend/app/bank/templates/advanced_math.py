@@ -216,3 +216,145 @@ class EquivalentExpressionsTemplate(Template):
 
 
 TEMPLATES.append(EquivalentExpressionsTemplate())
+
+
+class ParabolaGraphTemplate(Template):
+    """Read a parabola off a grid: its vertex, its extreme value, or a shift.
+
+    The harder route's Nonlinear functions row asks for "harder parabolas,
+    graph shifts", and this is the skill that most often carries a graph on the
+    real test, so the curve is drawn rather than described.
+    """
+
+    key = "parabola_graph"
+    domain = DOMAIN
+    skill = "Nonlinear functions"
+    types = ("MCQ", "SPR")
+
+    GRID_END = 10
+
+    def build(self, rng: random.Random, qtype: str, difficulty: str) -> Question:
+        lead = rng.choice([1, -1, 1, -1, 2, -2])
+        h = rng.randint(-4, 4)
+        k = rng.randint(-6, 6)
+        image = self._plot(lead, h, k)
+        opens = "upward" if lead > 0 else "downward"
+        extreme = "minimum" if lead > 0 else "maximum"
+
+        if difficulty == "Hard":
+            shift = nonzero(rng, -4, 4)
+            moved = h + shift
+            answer = tex(f"({number(moved)}, {number(k)})")
+            inner = f"x {'-' if shift >= 0 else '+'} {number(abs(shift))}"
+            text = (
+                f"The graph of {tex('y = f(x)')} is shown in the {tex('xy')}-plane above. If "
+                f"{tex(f'g(x) = f({inner})')}, what are the coordinates of the vertex of the graph "
+                f"of {tex('y = g(x)')}?"
+            )
+            rationale = (
+                f"The vertex of {tex('f')} is at {tex(f'({number(h)}, {number(k)})')}. Replacing "
+                f"{tex('x')} with {tex(inner)} shifts the graph {number(abs(shift))} "
+                f"{'right' if shift > 0 else 'left'}, so the vertex moves to {answer}."
+            )
+            distractors = pick_distractors(
+                answer,
+                [
+                    tex(f"({number(h - shift)}, {number(k)})"),
+                    tex(f"({number(h)}, {number(k + shift)})"),
+                    tex(f"({number(h)}, {number(k - shift)})"),
+                    tex(f"({number(moved)}, {number(-k)})"),
+                ],
+                pad=(tex(f"({number(moved + dx)}, {number(k + dy)})") for dx, dy in ((1, 0), (0, 1), (-1, 0), (0, -1))),
+            )
+        elif difficulty == "Medium":
+            answer = tex(f"({number(h)}, {number(k)})")
+            text = (
+                f"The graph of a parabola is shown in the {tex('xy')}-plane above. What are the "
+                "coordinates of its vertex?"
+            )
+            rationale = (
+                f"The parabola opens {opens} and turns at {answer}, which is its vertex."
+            )
+            distractors = pick_distractors(
+                answer,
+                [
+                    tex(f"({number(k)}, {number(h)})"),
+                    tex(f"({number(-h)}, {number(k)})"),
+                    tex(f"({number(h)}, {number(-k)})"),
+                    tex(f"({number(-h)}, {number(-k)})"),
+                ],
+                pad=(tex(f"({number(h + dx)}, {number(k + dy)})") for dx, dy in ((1, 0), (0, 1), (-1, 0), (0, -1))),
+            )
+        else:
+            answer = number(k)
+            text = (
+                f"The graph of {tex('y = f(x)')} is shown in the {tex('xy')}-plane above. What is "
+                f"the {extreme} value of {tex('f')}?"
+            )
+            rationale = (
+                f"The parabola opens {opens}, so its {extreme} is the {tex('y')}-coordinate of the "
+                f"vertex {tex(f'({number(h)}, {number(k)})')}, which is {tex(answer)}."
+            )
+            distractors = pick_distractors(
+                answer,
+                [number(h), number(-k), number(k + 1), number(k - 2)],
+                pad=numeric_variants(k),
+            )
+
+        # A grid-in takes a plain number, so the coordinate-pair variants are
+        # answered as multiple choice only.
+        if qtype == "SPR":
+            if difficulty != "Easy":
+                answer = number(k)
+                text = (
+                    f"The graph of {tex('y = f(x)')} is shown in the {tex('xy')}-plane above. What "
+                    f"is the {extreme} value of {tex('f')}?"
+                )
+                rationale = (
+                    f"The parabola opens {opens}, so its {extreme} is the {tex('y')}-coordinate of "
+                    f"the vertex {tex(f'({number(h)}, {number(k)})')}, which is {tex(answer)}."
+                )
+            return self.spr(
+                text=text, answer=answer, rationale=rationale, difficulty=difficulty, image=image
+            )
+
+        return self.mcq(
+            text=text,
+            correct=answer,
+            distractors=distractors,
+            rationale=rationale,
+            difficulty=difficulty,
+            rng=rng,
+            image=image,
+        )
+
+    def _plot(self, lead: int, h: int, k: int) -> dict:
+        """The parabola as a polyline, clipped to the visible grid."""
+        end = self.GRID_END
+        points = []
+        steps = int(end * 2 / 0.25) + 1
+        for index in range(steps + 1):
+            x = -end + index * 0.25
+            y = lead * (x - h) ** 2 + k
+            if abs(y) > end:
+                # Break the polyline where the curve leaves the grid.
+                if points and points[-1] != "":
+                    points.append("")
+                continue
+            points.append(f"{round(x, 2)},{round(y, 2)}")
+
+        runs = [run for run in " ".join(points).split("  ") if run.strip()]
+        draw = "".join(
+            f'<polyline points="{run.strip()}" fill="none" stroke="#2563eb" stroke-width="2"/>'
+            for run in runs
+        )
+        draw += f'<circle cx="{h}" cy="{k}" r="0.18" fill="#2563eb"/>'
+        alt = (
+            f"Coordinate-plane graph. A parabola opening "
+            f"{'upward' if lead > 0 else 'downward'} is graphed in the xy-plane, with its vertex "
+            f"marked at ({number(h)}, {number(k)})."
+        )
+        return {"xEnd": end, "yEnd": end, "step": 2, "alt": alt, "draw": draw}
+
+
+TEMPLATES.append(ParabolaGraphTemplate())
