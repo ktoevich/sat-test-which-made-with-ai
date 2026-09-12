@@ -91,7 +91,7 @@ def render_module(key: str, questions: Iterable[Question]) -> str:
     header = [f"## {module.title if module else key}", ""]
     if module:
         bands = "; ".join(f"{band.first}-{band.last} {band.label}" for band in module.bands)
-        header += [module.description, "", f"In the exam, questions run {bands}.", ""]
+        header += [module.description, "", f"Numbered as in the exam: questions run {bands}.", ""]
     header += [
         f"{len(questions)} questions ({len(questions) - grid_ins} multiple choice, "
         f"{grid_ins} grid-ins) — {spread}.",

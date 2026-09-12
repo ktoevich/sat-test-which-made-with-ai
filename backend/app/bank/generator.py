@@ -11,6 +11,7 @@ from collections import Counter
 from typing import Any, Sequence
 
 from .assembler import BundleSpec, Slot, fallbacks
+from .ordering import exam_order
 from .templates import Template, TemplateError, supports, templates_for
 
 Question = dict[str, Any]
@@ -119,6 +120,6 @@ def generate_bank(
     for index, plan in enumerate(plans, start=1):
         bundle: dict[str, Any] = {"test_id": f"{test_id_prefix}-{index:02d}"}
         for key, module in plan.items():
-            bundle[key] = [next(questions) for _ in module]
+            bundle[key] = exam_order(next(questions) for _ in module)
         bank.append(bundle)
     return bank

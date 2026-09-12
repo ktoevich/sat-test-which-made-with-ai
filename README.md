@@ -88,7 +88,7 @@ backend/
       attempts.py        saved test history
       question_bank.py   serves bundles from the database, else from the file
       bank_store.py      the bank held in the database, one row per test
-      test_builder.py    orders and numbers a module's questions
+      test_builder.py    numbers a module's questions, in the order the bank stores them
     bank/
       taxonomy.py        the Digital SAT content domains and their skills
       blueprint.py       the module structure from SAT test structure/
@@ -97,9 +97,10 @@ backend/
       importer.py        normalises an export you already have
       generator.py       builds original questions from templates
       assembler.py       turns a pool of questions into bundles
+      ordering.py        the order questions run in inside a module: easy first
       templates/         the question templates, by domain
       latex.py           LaTeX formatting helpers
-    cli.py               validate / stats / blueprint / generate / import commands
+    cli.py               validate / stats / blueprint / generate / import / reorder commands
     cli_bank.py          the `bank` commands: keep the bank in the database
   data/
     tests_bundle_cache.json   the question bank (not committed; build it)
@@ -196,6 +197,25 @@ Domain ranges per module (subtopics are in the file, or run `make blueprint`):
 | Advanced Math | 7–8 | 4–6 | 9–10 |
 | Problem-Solving and Data Analysis | 3–4 | 4–5 | 2–3 |
 | Geometry and Trigonometry | 3–4 | 3–4 | 3–4 |
+
+### The order inside a module
+
+Every module is stored the way the exam runs it: easy first, hard last, so the
+question numbers land in the bands above — in module 1, questions 1–7 are Easy,
+8–15 Medium and 16–22 Hard. Grid-ins sit wherever their difficulty puts them,
+as on the real test, and inside a band the questions keep the mixed-topic order
+they were drawn in. The API serves a module as stored, so question 5 of a paper
+in `answer-keys/` is question 5 on screen.
+
+A bank built before this ordering existed is put right in place:
+
+```bash
+make reorder            # python -m app.cli reorder --bank data/tests_bundle_cache.json
+make export             # then rewrite answer-keys/ so the papers match
+```
+
+After that, push the bank again (`app.cli bank push`) so the deployment serves
+the reordered modules.
 
 Building a module means *planning* it first: pick an exact count for every
 subtopic inside its range, pair each of those slots with a type and a difficulty

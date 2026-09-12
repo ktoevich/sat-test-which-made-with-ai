@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from . import blueprint as bp
+from .ordering import exam_order
 
 Question = dict[str, Any]
 
@@ -252,11 +253,16 @@ class QuestionPool:
 def assemble_bundle(
     pool: QuestionPool, plan: Mapping[str, Sequence[Slot]], test_id: str
 ) -> dict[str, Any]:
-    """Draw one full bundle. Questions are deep-copied so bundles stay independent."""
+    """Draw one full bundle. Questions are deep-copied so bundles stay independent.
+
+    Each module is stored the way the exam runs it — easy first, hard last —
+    so the bank, the papers in ``answer-keys/`` and the served module all
+    number the questions the same.
+    """
     bundle: dict[str, Any] = {"test_id": test_id}
     for key, slots in plan.items():
         questions = [question for slot in slots for question in pool.draw(slot)]
-        bundle[key] = [copy.deepcopy(question) for question in questions]
+        bundle[key] = exam_order(copy.deepcopy(question) for question in questions)
     return bundle
 
 

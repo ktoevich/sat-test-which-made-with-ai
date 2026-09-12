@@ -5,6 +5,7 @@
     python -m app.cli blueprint
     python -m app.cli generate --bundles 3 -o data/tests_bundle_cache.json
     python -m app.cli import export.csv --bundles 2 -o data/tests_bundle_cache.json
+    python -m app.cli reorder  [--bank PATH]
     python -m app.cli export -o ../answer-keys
     python -m app.cli bank --database "$POSTGRES_URL" push
     python -m app.cli users list
@@ -34,6 +35,7 @@ from .bank import (
     generate_bank,
     import_questions,
     load_source,
+    order_bank,
     summarise,
     validate_bank,
 )
@@ -124,6 +126,25 @@ def _span(low: int, high: int) -> str:
     return str(low) if low == high else f"{low}-{high}"
 
 
+def cmd_reorder(args: argparse.Namespace) -> int:
+    """Rewrite the bank so every module runs easy first, hard last.
+
+    Banks built before the assembler ordered its modules hold them in draw
+    order; this puts them in the exam's order in place, so the papers in
+    ``answer-keys/`` and the served modules agree on the numbering.
+    """
+    bank = _read_bank(args.bank)
+    assert_valid(bank)
+    moved = order_bank(bank)
+    if not moved:
+        print(f"{args.bank}: every module is already in exam order")
+        return 0
+
+    args.bank.write_text(json.dumps(bank, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"{args.bank}: reordered {moved} module(s)")
+    return 0
+
+
 def cmd_export(args: argparse.Namespace) -> int:
     bank = _read_bank(args.bank)
     written = export_bank(bank, args.output)
@@ -212,6 +233,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     blueprint = sub.add_parser("blueprint", help="print the module structure the generator follows")
     blueprint.set_defaults(func=cmd_blueprint)
+
+    reorder = sub.add_parser("reorder", help="put every module of a bank in exam order, in place")
+    reorder.add_argument("--bank", type=Path, default=DEFAULT_BANK)
+    reorder.set_defaults(func=cmd_reorder)
 
     export = sub.add_parser("export", help="write the bank as papers with answers and solutions")
     export.add_argument("--bank", type=Path, default=DEFAULT_BANK)
