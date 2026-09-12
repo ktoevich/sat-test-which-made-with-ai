@@ -78,6 +78,10 @@
   --dashboard-max-width: 900px;
   --content-gap: 40px;
 
+  /* Tallest a question figure may render: the prompt under it must stay on
+     screen without scrolling, on a laptop as much as on a large monitor. */
+  --figure-max-height: min(300px, 36vh);
+
   /* Layers */
   --z-bar: 10;
   --z-map: 100;

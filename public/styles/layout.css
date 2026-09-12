@@ -35,7 +35,10 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: var(--space-7) var(--content-gap);
+  /* Vertical room is what a figure plus its prompt compete for, so the
+     work area and the panels keep their side padding but sit tighter
+     top and bottom. */
+  padding: var(--space-5) var(--content-gap);
   /* Only the two panels scroll, never the page itself. */
   overflow-y: hidden;
 }
@@ -55,7 +58,7 @@
   max-width: calc(50% - (var(--content-gap) / 2));
   display: flex;
   flex-direction: column;
-  padding: var(--space-8);
+  padding: var(--space-6) var(--space-8);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);

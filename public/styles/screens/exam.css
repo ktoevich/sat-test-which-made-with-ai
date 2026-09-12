@@ -1,7 +1,21 @@
 .question-figure {
-  margin: var(--space-5) 0;
+  margin: var(--space-3) 0 var(--space-4);
   text-align: center;
   overflow-x: auto;
+}
+
+/* Every figure — College Board's own SVGs, the coordinate grids and the
+   diagrams drawn by the bank — arrives with a pixel width and height (see
+   coordinate-grid.js), so the browser scales it like an image: never wider
+   than the panel, never taller than the cap, proportions kept. */
+.question-figure svg,
+.modal__figure svg {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: var(--figure-max-height);
+  margin: 0 auto;
 }
 
 .question-text {
@@ -224,26 +238,14 @@
 
 /* --- Coordinate grid figures --- */
 .coordinate-grid {
-  display: block;
-  width: 100%;
-  max-width: 350px;
-  max-height: 350px;
-  margin: 0 auto;
   background: var(--color-surface);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
-/* Standalone diagrams: triangles, bar charts, crossing lines. Unlike the
-   coordinate grid these carry their own labels, so they are only bounded, not
-   forced to a square. */
+/* Standalone diagrams: triangles, bar charts, crossing lines. */
 .question-diagram {
-  display: block;
-  width: 100%;
-  max-width: 340px;
-  max-height: 300px;
-  margin: 0 auto;
   background: var(--color-surface);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
