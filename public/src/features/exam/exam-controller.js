@@ -7,6 +7,7 @@ import { byId, setText } from '../../core/dom.js';
 import { nextModuleTarget } from '../../core/scoring.js';
 import { hideLoading, runCountdown, showLoading } from '../../ui/loading-overlay.js';
 import { closeModal, openModal } from '../../ui/modal.js';
+import { ExamCalculator } from './calculator.js';
 import { ExamSession } from './exam-state.js';
 import { ExamTimer } from './timer.js';
 import { QuestionMap } from './question-map.js';
@@ -31,6 +32,7 @@ export class ExamController {
     });
     this.map = new QuestionMap({ onSelect: (index) => this.#goTo(index) });
     this.timer = new ExamTimer({ onExpire: () => this.#submitModule() });
+    this.calculator = new ExamCalculator();
 
     this.elements = {
       sectionInfo: byId('section-info'),
@@ -99,6 +101,7 @@ export class ExamController {
   async #beginModule(label) {
     setText(this.elements.sectionInfo, label);
     this.map.build(this.#module.size);
+    this.calculator.reset();
     await runCountdown();
     this.#renderCurrent();
     this.timer.start(MODULE_DURATION_SECONDS);
@@ -142,6 +145,7 @@ export class ExamController {
   #submitModule() {
     this.timer.stop();
     this.map.close();
+    this.calculator.close();
     const score = this.session.finishModule();
 
     if (this.#module.number === 1) {

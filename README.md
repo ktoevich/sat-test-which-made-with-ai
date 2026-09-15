@@ -7,7 +7,8 @@ module 2 follows how the student did in module 1. Every module is 22 questions
 `SAT test structure/`.
 
 - **Backend** — Flask API that serves modules from a JSON question bank.
-- **Frontend** — dependency-free ES modules (no build step) plus KaTeX for formulas.
+- **Frontend** — dependency-free ES modules (no build step) plus KaTeX for formulas
+  and the Desmos graphing calculator the digital SAT provides.
 
 ## Requirements
 
@@ -47,6 +48,18 @@ elsewhere through the meta tag in `public/index.html`:
 
 Open the frontend over `http://`, not `file://` — browsers block ES module
 imports on the `file:` scheme.
+
+### The calculator
+
+The **Calculator** button in the exam opens the Desmos graphing calculator in a
+floating panel, as on the real test. It is loaded from desmos.com the first time
+a student opens it, with the demo key Desmos publishes for development. A
+deployment should [request its own free key](https://www.desmos.com/api) and put
+it in the meta tag in `public/index.html`:
+
+```html
+<meta name="sat:desmos-api-key" content="your-key">
+```
 
 ## Tests
 
@@ -123,7 +136,7 @@ public/                  the frontend, served straight from the CDN
     features/
       auth/              sign-in and sign-up
       lobby/             dashboard and history
-      exam/              state, timer, navigator, question view, controller
+      exam/              state, timer, navigator, question view, calculator, controller
       results/           score screen, solution and attempt modals
     ui/                  screen switching, loading overlay, modals
 
