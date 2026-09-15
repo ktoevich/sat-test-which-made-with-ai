@@ -24,7 +24,7 @@ export const API_BASE_URL = resolveApiBaseUrl();
  * deployment should request its own free key at https://www.desmos.com/api
  * and put it in the `sat:desmos-api-key` meta tag in index.html.
  */
-const DESMOS_DEMO_API_KEY = 'dcb31709b452b1cf9dc26972add0dda6';
+const DESMOS_DEMO_API_KEY = 'dcb31709b452b1cf9dc26972add0fda6';
 
 function resolveDesmosApiKey() {
   const configured = document.querySelector('meta[name="sat:desmos-api-key"]')?.content.trim();
@@ -34,17 +34,45 @@ function resolveDesmosApiKey() {
 export const DESMOS_SCRIPT_URL =
   `https://www.desmos.com/api/v1.10/calculator.js?apiKey=${encodeURIComponent(resolveDesmosApiKey())}`;
 
-/** Time allowed per module, matching the digital SAT math section. */
-export const MODULE_DURATION_SECONDS = 35 * 60;
+/**
+ * The two sections of the digital SAT, as the exam runs them: minutes per
+ * module, the number of correct answers in module 1 that unlock the harder
+ * module 2 (kept as a fraction so a module of another size scales the same
+ * way), and whether the calculator is offered. Keys match the API's `section`.
+ */
+export const SECTIONS = {
+  math: {
+    key: 'math',
+    label: 'Math',
+    minutes: 35,
+    passMark: { correct: 15, outOf: 22 },
+    calculator: true,
+  },
+  reading: {
+    key: 'reading',
+    label: 'Reading and Writing',
+    minutes: 32,
+    passMark: { correct: 18, outOf: 27 },
+    calculator: false,
+  },
+};
+
+/** Attempts and requests that name no section are math ones. */
+export const DEFAULT_SECTION = 'math';
+
+/** @returns {typeof SECTIONS.math} the section for a key, the default for an unknown one */
+export function sectionOf(key) {
+  return SECTIONS[key] ?? SECTIONS[DEFAULT_SECTION];
+}
+
+/** Time allowed per math module. */
+export const MODULE_DURATION_SECONDS = SECTIONS.math.minutes * 60;
 
 /** Seconds counted down on screen before a module starts. */
 export const COUNTDOWN_SECONDS = 3;
 
-/**
- * Correct answers in module 1 that unlock the harder module 2: 15 of the 22
- * questions. Kept as a fraction so a module of another size scales the same way.
- */
-export const ADAPTIVE_PASS_MARK = { correct: 15, outOf: 22 };
+/** The math section's pass mark: 15 of the 22 questions. */
+export const ADAPTIVE_PASS_MARK = SECTIONS.math.passMark;
 
 /** Scaled-score bounds used to convert the raw score. */
 export const SCORE_MIN = 200;
