@@ -3,7 +3,7 @@
 import { renderQuestionFigure } from '../../core/coordinate-grid.js';
 import { byId, escapeHtml, setHtml, setText, setVisible } from '../../core/dom.js';
 import { renderMath } from '../../core/katex.js';
-import { cleanText } from '../../core/questions.js';
+import { cleanText, formatParagraphs } from '../../core/questions.js';
 import { openModal } from '../../ui/modal.js';
 import { describeAnswers } from './answer-summary.js';
 
@@ -29,12 +29,13 @@ export function openSolution(entry) {
   setHtml(ui.figure, figure);
   setVisible(ui.figure, Boolean(figure));
 
-  setText(ui.text, cleanText(question.text));
+  // The prompt is markup, as in the exam: a data table, a formula image.
+  setHtml(ui.text, formatParagraphs(question.text));
   renderRationale(ui.rationale, question);
 
-  setText(ui.userAnswer, answers.userText);
+  setHtml(ui.userAnswer, answers.userHtml);
   ui.userAnswer.className = answers.valueClass;
-  setText(ui.correctAnswer, answers.correctText);
+  setHtml(ui.correctAnswer, answers.correctHtml);
 
   openModal('solution-modal');
   renderMath(ui.modal);

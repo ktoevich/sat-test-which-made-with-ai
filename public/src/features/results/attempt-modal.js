@@ -70,9 +70,9 @@ function questionCard(entry) {
     el('div', {
       className: 'answer-summary',
       html: `<div><strong>Your Answer:</strong>
-               <span class="${answers.valueClass}">${escapeHtml(answers.userText)}</span></div>
+               <span class="${answers.valueClass}">${answers.userHtml}</span></div>
              <div><strong>Correct Answer:</strong>
-               <span class="answer-value--correct">${escapeHtml(answers.correctText)}</span></div>`,
+               <span class="answer-value--correct">${answers.correctHtml}</span></div>`,
     }),
   );
 

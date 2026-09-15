@@ -18,6 +18,24 @@
   margin: 0 auto;
 }
 
+/* Pictures inside a prompt or an answer choice. College Board's older items
+   draw a formula as a small inline image (role="math"), and a few offer four
+   graphs to choose between — 350-480px PNGs that would otherwise each fill
+   the panel. A formula stays inline at its own size; a graph is boxed like a
+   figure. */
+.question-text img,
+.option-item__text img {
+  max-width: 100%;
+  height: auto;
+  vertical-align: middle;
+}
+
+.option-item__text img:not([role="math"]) {
+  display: block;
+  max-height: var(--choice-figure-max-height);
+  margin: var(--space-1) 0;
+}
+
 .question-text {
   margin-top: 10px;
   color: var(--color-slate-700);
