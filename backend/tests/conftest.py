@@ -38,10 +38,34 @@ def bundle() -> dict:
     }
 
 
+def make_reading_question(question_id: str, domain: str, difficulty: str) -> dict:
+    """A Reading and Writing question: a passage plus one question about it."""
+    return {
+        **make_question(question_id, "MCQ", difficulty),
+        "domain": domain,
+        "passage": f"<p>Passage {question_id}</p>",
+    }
+
+
 @pytest.fixture
-def bank_path(tmp_path: Path, bundle: dict) -> Path:
+def reading_bundle() -> dict:
+    return {
+        "test_id": "reading-1",
+        "section": "reading",
+        "module_1": [
+            make_reading_question("r1-conventions", "Standard English Conventions", "Easy"),
+            make_reading_question("r1-craft-hard", "Craft and Structure", "Hard"),
+            make_reading_question("r1-craft-easy", "Craft and Structure", "Easy"),
+        ],
+        "module_2_HIGHER": [make_reading_question("r2h", "Information and Ideas", "Hard")],
+        "module_2_LOWER": [make_reading_question("r2l", "Information and Ideas", "Easy")],
+    }
+
+
+@pytest.fixture
+def bank_path(tmp_path: Path, bundle: dict, reading_bundle: dict) -> Path:
     path = tmp_path / "bank.json"
-    path.write_text(json.dumps([bundle]), encoding="utf-8")
+    path.write_text(json.dumps([bundle, reading_bundle]), encoding="utf-8")
     return path
 
 

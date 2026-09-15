@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from flask import Blueprint, g, jsonify, request
 
+from ..bank.taxonomy import DEFAULT_SECTION, SECTION_KEYS
 from ..db import get_db
 from ..services import attempts as attempts_service
 from .auth import login_required
@@ -39,6 +40,10 @@ def create_attempt():
     if total <= 0 or not 0 <= correct <= total:
         return error_response(422, "validation_failed", "correct must be between 0 and total.")
 
+    section = payload.get("section") or DEFAULT_SECTION
+    if section not in SECTION_KEYS:
+        return error_response(422, "validation_failed", f"section must be one of {SECTION_KEYS}.")
+
     details = payload.get("details")
     attempt = attempts_service.record(
         get_db(),
@@ -47,5 +52,6 @@ def create_attempt():
         correct=correct,
         total=total,
         details=details if isinstance(details, list) else [],
+        section=section,
     )
     return jsonify({"attempt": attempt}), 201

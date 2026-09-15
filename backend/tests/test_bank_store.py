@@ -76,7 +76,7 @@ def test_the_api_serves_the_stored_bank_over_the_file(client, db):
 
 
 def test_the_file_still_answers_when_the_database_holds_no_bank(client):
-    assert client.get("/api/health").get_json()["tests_available"] == 1
+    assert client.get("/api/health").get_json()["tests_available"] == 2
     assert client.get("/api/tests/module-1").get_json()["test_id"] == "bundle-1"
 
 
@@ -92,7 +92,7 @@ def test_the_bank_survives_a_database_that_cannot_be_reached(bank_path, tmp_path
         DATABASE_URL="postgres://nobody@127.0.0.1:1/nothing",
     )
     client = app.test_client()
-    assert client.get("/api/health").get_json()["tests_available"] == 1
+    assert client.get("/api/health").get_json()["tests_available"] == 2
     assert client.get("/api/tests/module-1").status_code == 200
 
 
@@ -105,3 +105,52 @@ def test_an_empty_bank_is_still_reported_as_empty(tmp_path):
     client = app.test_client()
     assert client.get("/api/health").get_json()["tests_available"] == 0
     assert client.get("/api/tests/module-1").status_code == 503
+
+
+def test_each_section_is_stored_and_drawn_on_its_own(db, reading_bundle):
+    db.init_schema()
+    bank_store.replace_all(db, [other_bundle("math-a"), reading_bundle, other_bundle("math-b")])
+
+    assert bank_store.count(db) == 3
+    assert bank_store.count(db, "reading") == 1
+    assert bank_store.counts_by_section(db) == {"math": 2, "reading": 1}
+    assert bank_store.test_ids(db, "reading") == ["reading-1"]
+    assert bank_store.fetch_random(db, section="reading")["test_id"] == "reading-1"
+    assert bank_store.fetch_random(db, section="math")["test_id"] in {"math-a", "math-b"}
+
+
+def test_a_database_from_before_the_sections_gains_the_column(tmp_path):
+    """The deployed tables predate the section column; the schema grows it."""
+    import sqlite3
+
+    from app.db import connect
+
+    path = tmp_path / "old.db"
+    old = sqlite3.connect(path)
+    old.execute(
+        "CREATE TABLE question_bundles (test_id TEXT PRIMARY KEY, position INTEGER NOT NULL, "
+        "payload TEXT NOT NULL, updated_at TEXT NOT NULL)"
+    )
+    old.execute(
+        "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL UNIQUE, "
+        "username TEXT NOT NULL, password_hash TEXT NOT NULL, created_at TEXT NOT NULL, "
+        "last_login_at TEXT, is_disabled INTEGER NOT NULL DEFAULT 0)"
+    )
+    old.execute(
+        "CREATE TABLE attempts (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id BIGINT NOT NULL, "
+        "taken_at TEXT NOT NULL, score INTEGER NOT NULL, correct INTEGER NOT NULL, "
+        "total INTEGER NOT NULL, details TEXT NOT NULL)"
+    )
+    old.execute(
+        "INSERT INTO question_bundles VALUES ('legacy', 0, ?, 'then')",
+        (json.dumps(other_bundle("legacy")),),
+    )
+    old.commit()
+    old.close()
+
+    database = connect(path)
+    database.init_schema()
+    database.init_schema()  # a second run must not trip over the column it added
+    assert bank_store.counts_by_section(database) == {"math": 1}
+    assert bank_store.fetch_random(database, section="math")["test_id"] == "legacy"
+    database.close()

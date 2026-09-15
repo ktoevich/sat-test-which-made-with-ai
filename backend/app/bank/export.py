@@ -10,8 +10,9 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from . import blueprint, figures
+from .ordering import bundle_section
 from .schema import MODULE_KEYS, option_letter
-from .taxonomy import DIFFICULTIES, DOMAINS
+from .taxonomy import DIFFICULTIES, SECTIONS, section_of
 
 Question = dict[str, Any]
 Bundle = dict[str, Any]
@@ -56,9 +57,13 @@ def render_question(number: int, question: Question) -> str:
         f"*{skill}*",
         "",
         *_figure(question),
-        str(question.get("text", "")).strip(),
-        "",
     ]
+    passage = str(question.get("passage") or "").strip()
+    if passage:
+        # Reading and Writing: the passage is markup and stays so; a Markdown
+        # viewer renders it, and it is readable as text either way.
+        lines += [passage, ""]
+    lines += [str(question.get("text", "")).strip(), ""]
 
     correct = str(question.get("answer", "")).strip().upper()
     for option in question.get("options") or []:
@@ -78,7 +83,7 @@ def render_question(number: int, question: Question) -> str:
     return "\n".join(lines)
 
 
-def render_module(key: str, questions: Iterable[Question]) -> str:
+def render_module(key: str, questions: Iterable[Question], section: str | None = None) -> str:
     questions = list(questions)
     counts = {
         level: sum(1 for q in questions if q.get("difficulty") == level)
@@ -87,9 +92,17 @@ def render_module(key: str, questions: Iterable[Question]) -> str:
     spread = ", ".join(f"{level} {count}" for level, count in counts.items())
     grid_ins = sum(1 for q in questions if q.get("type") == "SPR")
 
-    module = blueprint.BY_KEY.get(key)
+    module = blueprint.module_for(section, key)
     header = [f"## {module.title if module else key}", ""]
-    if module:
+    if module and module.ordering == "domain":
+        domains = ", ".join(domain.name for domain in module.section.domains)
+        header += [
+            module.description,
+            "",
+            f"Numbered as in the exam: grouped by domain — {domains} — and easy first inside each group.",
+            "",
+        ]
+    elif module:
         bands = "; ".join(f"{band.first}-{band.last} {band.label}" for band in module.bands)
         header += [module.description, "", f"Numbered as in the exam: questions run {bands}.", ""]
     header += [
@@ -102,8 +115,11 @@ def render_module(key: str, questions: Iterable[Question]) -> str:
 
 def render_bundle(bundle: Bundle) -> str:
     """A whole test: all three modules, with answers and solutions inline."""
+    section = bundle_section(bundle)
     parts = [
         f"# {bundle.get('test_id', 'Test')}",
+        "",
+        f"**{section_of(section).name}** section.",
         "",
         "Every question below is followed by its answer and worked solution, so "
         "this file is a paper and an answer key at once.",
@@ -112,7 +128,7 @@ def render_bundle(bundle: Bundle) -> str:
         "chosen by how the student did.",
         "",
     ]
-    parts += [render_module(key, bundle.get(key, [])) for key in MODULE_KEYS]
+    parts += [render_module(key, bundle.get(key, []), section) for key in MODULE_KEYS]
     return "\n".join(parts).rstrip() + "\n"
 
 
@@ -131,19 +147,23 @@ def render_index(bank: list[Bundle], filenames: dict[str, str]) -> str:
         "",
         f"{len(bank)} test(s), {len(questions)} questions.",
         "",
-        "| Test | Questions | File |",
-        "| ---- | --------: | ---- |",
+        "| Test | Section | Questions | File |",
+        "| ---- | ------- | --------: | ---- |",
     ]
     for bundle in bank:
         test_id = bundle.get("test_id", "?")
         count = sum(len(bundle.get(key, [])) for key in MODULE_KEYS)
-        lines.append(f"| {test_id} | {count} | [{filenames[test_id]}]({filenames[test_id]}) |")
+        name = section_of(bundle_section(bundle)).name
+        lines.append(f"| {test_id} | {name} | {count} | [{filenames[test_id]}]({filenames[test_id]}) |")
 
-    lines += ["", "## Coverage by domain", "", "| Domain | Questions | Share |", "| --- | ---: | ---: |"]
-    total = len(questions) or 1
-    for domain in DOMAINS:
-        count = sum(1 for q in questions if q.get("domain") == domain.name)
-        lines.append(f"| {domain.name} | {count} | {count / total:.0%} |")
+    lines += ["", "## Coverage by domain", "", "| Section | Domain | Questions | Share |", "| --- | --- | ---: | ---: |"]
+    for section in SECTIONS:
+        own = [q for b in bank if bundle_section(b) == section.key for key in MODULE_KEYS for q in b.get(key, [])]
+        if not own:
+            continue
+        for domain in section.domains:
+            count = sum(1 for q in own if q.get("domain") == domain.name)
+            lines.append(f"| {section.name} | {domain.name} | {count} | {count / len(own):.0%} |")
 
     lines += ["", "## Coverage by difficulty", "", "| Difficulty | Questions |", "| --- | ---: |"]
     for level in DIFFICULTIES:

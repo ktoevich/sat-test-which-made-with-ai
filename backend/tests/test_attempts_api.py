@@ -12,7 +12,8 @@ def test_attempts_require_a_session(client):
 def test_a_new_account_has_no_attempts(client, auth_headers):
     payload = client.get("/api/attempts", headers=auth_headers).get_json()
     assert payload["attempts"] == []
-    assert payload["summary"] == {"taken": 0, "best": None, "average": None}
+    empty = {"taken": 0, "best": None, "average": None}
+    assert payload["summary"] == {**empty, "by_section": {"math": empty, "reading": empty}}
 
 
 def test_recording_an_attempt_shows_up_in_the_history(client, auth_headers):
@@ -23,6 +24,7 @@ def test_recording_an_attempt_shows_up_in_the_history(client, auth_headers):
 
     attempt = payload["attempts"][0]
     assert attempt["score"] == 680
+    assert attempt["section"] == "math"
     assert attempt["correct"] == 4
     assert attempt["details"] == [{"number": 1}]
     assert attempt["taken_at"]
@@ -33,7 +35,29 @@ def test_the_summary_aggregates_every_attempt(client, auth_headers):
         post_attempt(client, auth_headers, score=score)
 
     summary = client.get("/api/attempts", headers=auth_headers).get_json()["summary"]
-    assert summary == {"taken": 3, "best": 700, "average": 600}
+    assert {key: summary[key] for key in ("taken", "best", "average")} == {
+        "taken": 3,
+        "best": 700,
+        "average": 600,
+    }
+
+
+def test_each_section_is_summarised_on_its_own(client, auth_headers):
+    post_attempt(client, auth_headers, score=500)
+    post_attempt(client, auth_headers, score=700, section="reading")
+    post_attempt(client, auth_headers, score=600, section="reading")
+
+    payload = client.get("/api/attempts", headers=auth_headers).get_json()
+    assert [a["section"] for a in payload["attempts"]] == ["reading", "reading", "math"]
+    assert payload["summary"]["by_section"] == {
+        "math": {"taken": 1, "best": 500, "average": 500},
+        "reading": {"taken": 2, "best": 700, "average": 650},
+    }
+    assert payload["summary"]["taken"] == 3
+
+
+def test_an_unknown_section_is_rejected(client, auth_headers):
+    assert post_attempt(client, auth_headers, section="science").status_code == 422
 
 
 def test_attempts_are_returned_newest_first(client, auth_headers):

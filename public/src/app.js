@@ -19,7 +19,7 @@ export class App {
     this.auth = new AuthScreen({ onAuthenticated: (user) => this.#enterLobby(user) });
 
     this.lobby = new LobbyScreen({
-      onStartTest: () => this.#startTest(),
+      onStartTest: (section) => this.#startTest(section),
       onLogout: () => this.#logout(),
       onViewAttempt: (attempt) => openAttempt(attempt),
     });
@@ -82,10 +82,10 @@ export class App {
     showScreen(Screen.AUTH);
   }
 
-  async #startTest() {
+  async #startTest(section) {
     this.lobby.clearNotice();
     showScreen(Screen.EXAM);
-    await this.exam.startAttempt();
+    await this.exam.startAttempt(section);
   }
 
   #returnToLobbyWithNotice(message) {

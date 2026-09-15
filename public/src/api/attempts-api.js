@@ -8,6 +8,6 @@ export function listAttempts() {
 }
 
 /** @returns {Promise<{attempt: object}>} */
-export function saveAttempt({ score, correct, total, details }) {
-  return apiPost('/attempts', { score, correct, total, details });
+export function saveAttempt({ section, score, correct, total, details }) {
+  return apiPost('/attempts', { section, score, correct, total, details });
 }

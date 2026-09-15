@@ -17,6 +17,7 @@ import random
 from datetime import datetime, timezone
 from typing import Any, Sequence
 
+from ..bank.ordering import bundle_section
 from ..db import Database
 
 Bundle = dict[str, Any]
@@ -24,17 +25,30 @@ Bundle = dict[str, Any]
 TABLE = "question_bundles"
 
 
+def _where(section: str | None) -> tuple[str, tuple]:
+    """A filter on the section, or none at all."""
+    return (" WHERE section = ?", (section,)) if section else ("", ())
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def count(database: Database) -> int:
-    row = database.fetch_one(f"SELECT COUNT(*) AS total FROM {TABLE}")
+def count(database: Database, section: str | None = None) -> int:
+    """How many tests are stored, in one section or in all of them."""
+    where, params = _where(section)
+    row = database.fetch_one(f"SELECT COUNT(*) AS total FROM {TABLE}{where}", params)
     return int(row["total"]) if row else 0
 
 
-def test_ids(database: Database) -> list[str]:
-    rows = database.fetch_all(f"SELECT test_id FROM {TABLE} ORDER BY position, test_id")
+def counts_by_section(database: Database) -> dict[str, int]:
+    rows = database.fetch_all(f"SELECT section, COUNT(*) AS total FROM {TABLE} GROUP BY section")
+    return {str(row["section"]): int(row["total"]) for row in rows}
+
+
+def test_ids(database: Database, section: str | None = None) -> list[str]:
+    where, params = _where(section)
+    rows = database.fetch_all(f"SELECT test_id FROM {TABLE}{where} ORDER BY position, test_id", params)
     return [str(row["test_id"]) for row in rows]
 
 
@@ -43,9 +57,11 @@ def fetch(database: Database, test_id: str) -> Bundle | None:
     return json.loads(row["payload"]) if row else None
 
 
-def fetch_random(database: Database, rng: random.Random | None = None) -> Bundle | None:
-    """One bundle, chosen without reading the payload of any of the others."""
-    ids = test_ids(database)
+def fetch_random(
+    database: Database, rng: random.Random | None = None, section: str | None = None
+) -> Bundle | None:
+    """One bundle of ``section``, chosen without reading the payload of any of the others."""
+    ids = test_ids(database, section)
     if not ids:
         return None
     return fetch(database, (rng or random).choice(ids))
@@ -68,9 +84,11 @@ def replace_all(database: Database, bank: Sequence[Bundle]) -> int:
         database.execute(f"DELETE FROM {TABLE}")
         for position, bundle in enumerate(bank):
             database.execute(
-                f"INSERT INTO {TABLE} (test_id, position, payload, updated_at) VALUES (?, ?, ?, ?)",
+                f"INSERT INTO {TABLE} (test_id, section, position, payload, updated_at) "
+                "VALUES (?, ?, ?, ?, ?)",
                 (
                     str(bundle["test_id"]),
+                    bundle_section(bundle),
                     position,
                     json.dumps(bundle, ensure_ascii=False),
                     stamp,

@@ -98,6 +98,11 @@ export function optionTextFor(question, letter) {
   return match ?? normalised;
 }
 
+/** A Reading and Writing question carries the passage it is about. */
+export function hasPassage(question) {
+  return typeof question?.passage === 'string' && question.passage.trim() !== '';
+}
+
 export function difficultyModifier(question) {
   return String(question.difficulty ?? 'Medium').toLowerCase();
 }

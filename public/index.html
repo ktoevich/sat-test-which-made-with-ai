@@ -87,7 +87,8 @@
           </div>
           <div class="dashboard__actions">
             <button type="button" class="btn-secondary btn-secondary--danger" id="logout-btn">Logout</button>
-            <button type="button" class="btn-primary btn-primary--large" id="start-test-btn">+ Start Mock Test</button>
+            <button type="button" class="btn-primary btn-primary--large" id="start-reading-btn" data-section="reading">+ Reading &amp; Writing</button>
+            <button type="button" class="btn-primary btn-primary--large" id="start-test-btn" data-section="math">+ Math</button>
           </div>
         </div>
 
@@ -97,8 +98,12 @@
             <div class="stat-card__value" id="stat-tests">0</div>
           </div>
           <div class="card stat-card">
-            <div class="stat-card__title">Best Score</div>
+            <div class="stat-card__title">Best Math</div>
             <div class="stat-card__value" id="stat-best">-</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-card__title">Best Reading &amp; Writing</div>
+            <div class="stat-card__value" id="stat-best-reading">-</div>
           </div>
           <div class="card stat-card">
             <div class="stat-card__title">Average Score</div>
@@ -110,7 +115,7 @@
           <h3 class="table-title">Your Recent Tests</h3>
           <table class="data-table">
             <thead>
-              <tr><th>Date</th><th>Score</th><th>Correct</th><th>Action</th></tr>
+              <tr><th>Date</th><th>Section</th><th>Score</th><th>Correct</th><th>Action</th></tr>
             </thead>
             <tbody id="history-table-body"></tbody>
           </table>
@@ -149,6 +154,8 @@
               Calculator
             </button>
           </div>
+          <!-- Reading and Writing: the question sits here, above its choices; the passage is on the left. -->
+          <div class="question-stem no-copy wrap-text hidden" id="question-stem"></div>
           <ul class="no-copy" id="options-list"></ul>
         </section>
       </div>
@@ -189,7 +196,7 @@
 
       <div id="final-results" class="results-card hidden">
         <div class="score-header">
-          <h2 class="score-header__title">Your Total SAT Math Score</h2>
+          <h2 class="score-header__title" id="score-title">Your SAT Math Score</h2>
           <div class="score-circle">
             <div class="score-circle__fill" id="score-fill"></div>
             <span class="score-circle__value" id="score-value">800</span>
@@ -217,6 +224,7 @@
       <div class="modal">
         <h3 class="modal__title" id="solution-title">Question Details</h3>
         <div id="solution-figure" class="modal__figure hidden"></div>
+        <div class="modal__passage question-passage no-copy wrap-text hidden" id="solution-passage"></div>
         <div class="modal__body no-copy wrap-text" id="solution-text"></div>
         <div class="rationale no-copy hidden" id="solution-rationale"></div>
 

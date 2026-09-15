@@ -1,7 +1,11 @@
-def test_health_reports_available_tests(client):
+def test_health_reports_available_tests_per_section(client):
     response = client.get("/api/health")
     assert response.status_code == 200
-    assert response.get_json() == {"status": "ok", "tests_available": 1}
+    assert response.get_json() == {
+        "status": "ok",
+        "tests_available": 2,
+        "sections": {"math": 1, "reading": 1},
+    }
 
 
 def test_module_1_returns_ordered_questions(client):
@@ -10,10 +14,55 @@ def test_module_1_returns_ordered_questions(client):
 
     payload = response.get_json()
     assert payload["test_id"] == "bundle-1"
+    assert payload["section"] == "math"
     assert payload["module"] == 1
     assert [q["id"] for q in payload["questions"]] == [1, 2, 3]
     # Easy -> Medium -> Hard, grid-ins wherever their difficulty puts them.
     assert [q["question_id"] for q in payload["questions"]] == ["m1-easy", "m1-spr", "m1-hard"]
+
+
+def test_a_reading_module_is_grouped_by_domain_then_difficulty(client):
+    response = client.get("/api/tests/module-1?section=reading")
+    assert response.status_code == 200
+
+    payload = response.get_json()
+    assert payload["test_id"] == "reading-1"
+    assert payload["section"] == "reading"
+    # Craft and Structure before Standard English Conventions; easy first inside.
+    assert [q["question_id"] for q in payload["questions"]] == [
+        "r1-craft-easy",
+        "r1-craft-hard",
+        "r1-conventions",
+    ]
+    assert payload["questions"][0]["passage"] == "<p>Passage r1-craft-easy</p>"
+
+    second = client.get("/api/tests/module-2?test_id=reading-1&target=LOWER")
+    assert second.get_json()["section"] == "reading"
+    assert second.get_json()["questions"][0]["question_id"] == "r2l"
+
+
+def test_an_unknown_section_is_rejected(client):
+    response = client.get("/api/tests/module-1?section=science")
+    assert response.status_code == 422
+    assert response.get_json()["error"]["code"] == "invalid_request"
+
+
+def test_a_section_with_no_tests_is_reported_empty(tmp_path, bundle):
+    import json
+
+    from app import create_app
+
+    path = tmp_path / "math-only.json"
+    path.write_text(json.dumps([bundle]), encoding="utf-8")
+    client = create_app(
+        "testing", QUESTION_BANK_PATH=path, DATABASE_PATH=tmp_path / "math-only.db"
+    ).test_client()
+
+    assert client.get("/api/tests/module-1").status_code == 200
+    response = client.get("/api/tests/module-1?section=reading")
+    assert response.status_code == 503
+    assert response.get_json()["error"]["code"] == "bank_empty"
+    assert client.get("/api/health").get_json()["sections"] == {"math": 1, "reading": 0}
 
 
 def test_module_2_follows_the_requested_target(client):

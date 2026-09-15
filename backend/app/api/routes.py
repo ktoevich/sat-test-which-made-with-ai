@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from flask import Blueprint, current_app, jsonify, request
 
+from ..bank.ordering import bundle_section
+from ..bank.taxonomy import DEFAULT_SECTION, SECTION_KEYS
 from ..services import QuestionBankError, build_module
 from .errors import error_response
 
@@ -16,23 +18,35 @@ def _bank():
 
 @bp.get("/health")
 def health():
-    """Liveness probe that also reports whether any test is ready to serve."""
+    """Liveness probe that also reports how many tests are ready to serve, per section."""
     bank = _bank()
-    return jsonify({"status": "ok", "tests_available": bank.count()})
+    return jsonify(
+        {"status": "ok", "tests_available": bank.count(), "sections": bank.counts_by_section()}
+    )
 
 
 @bp.get("/tests/module-1")
 def module_1():
-    """Start an attempt: pick a random bundle and return its first module."""
+    """Start an attempt: pick a random bundle of the section and return its first module.
+
+    ``section`` is ``math`` (the default) or ``reading``.
+    """
     bank = _bank()
-    if bank.is_empty:
+    section = request.args.get("section", DEFAULT_SECTION)
+    if section not in SECTION_KEYS:
+        return error_response(
+            422, "invalid_request", f"Unknown section {section!r}; expected one of {SECTION_KEYS}."
+        )
+    if not bank.has_section(section):
         return error_response(
             503, "bank_empty", "No generated tests are available yet. Please try again later."
         )
 
-    bundle = bank.random_bundle()
-    questions = build_module(bank.module_1(bundle))
-    return jsonify({"test_id": bundle["test_id"], "module": 1, "questions": questions})
+    bundle = bank.random_bundle(section=section)
+    questions = build_module(bank.module_1(bundle), section)
+    return jsonify(
+        {"test_id": bundle["test_id"], "section": section, "module": 1, "questions": questions}
+    )
 
 
 @bp.get("/tests/module-2")
@@ -55,8 +69,11 @@ def module_2():
             f"Test {test_id!r} is no longer available. Please start a new attempt.",
         )
 
-    questions = build_module(bank.module_2(bundle, target))
-    return jsonify({"test_id": bundle["test_id"], "module": 2, "questions": questions})
+    section = bundle_section(bundle)
+    questions = build_module(bank.module_2(bundle, target), section)
+    return jsonify(
+        {"test_id": bundle["test_id"], "section": section, "module": 2, "questions": questions}
+    )
 
 
 @bp.errorhandler(QuestionBankError)

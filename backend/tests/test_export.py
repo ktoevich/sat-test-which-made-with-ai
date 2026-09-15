@@ -81,3 +81,22 @@ def test_the_index_reports_domain_coverage(tmp_path, bundle):
 
     assert "## Coverage by domain" in index
     assert "## Coverage by difficulty" in index
+
+
+def test_a_reading_bundle_renders_its_passages_and_its_domain_order(reading_bundle):
+    rendered = render_bundle(reading_bundle)
+
+    assert "**Reading and Writing** section." in rendered
+    assert "## Reading and Writing — Module 1" in rendered
+    assert "grouped by domain — Craft and Structure, Information and Ideas" in rendered
+    assert "<p>Passage r1-craft-easy</p>" in rendered
+    assert "3 questions (3 multiple choice, 0 grid-ins)" in rendered
+
+
+def test_the_index_covers_both_sections(tmp_path, bundle, reading_bundle):
+    export_bank([bundle, reading_bundle], tmp_path)
+    index = (tmp_path / "README.md").read_text(encoding="utf-8")
+
+    assert "| reading-1 | Reading and Writing | 5 |" in index
+    assert "| Reading and Writing | Craft and Structure | 2 |" in index
+    assert "| Math | Algebra |" in index

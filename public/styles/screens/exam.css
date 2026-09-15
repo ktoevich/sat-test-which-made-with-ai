@@ -25,6 +25,10 @@
    figure. */
 .question-text img,
 .option-item__text img {
+  /* The bank sizes a picture with width/height attributes — a graph offered
+     as a choice at 82px — so both are reset and the picture scales to its
+     box instead. */
+  width: auto;
   max-width: 100%;
   height: auto;
   vertical-align: middle;
@@ -41,6 +45,86 @@
   color: var(--color-slate-700);
   font-size: 1.2rem;
   line-height: 1.8;
+}
+
+/* --- Reading and Writing --- */
+
+/* The passage: prose from the bank, trimmed to these tags by the converter
+   (question-bank/tools/to_bank.py). Paragraphs, an indented or quoted
+   excerpt, a poem with its lines kept, a credit line, an underlined sentence
+   the question refers to, and the blank the choices fill. */
+.question-passage {
+  color: var(--color-text-strong);
+  font-size: 1.15rem;
+  line-height: 1.75;
+}
+
+.question-passage p {
+  margin: 0 0 1em;
+}
+
+.question-passage p:last-child {
+  margin-bottom: 0;
+}
+
+.question-passage blockquote {
+  margin: 0 0 1em;
+  padding-left: 1em;
+  border-left: 3px solid var(--color-slate-300);
+}
+
+.question-passage .passage-poem p {
+  margin: 0;
+}
+
+.question-passage .passage-indent {
+  padding-left: 1.5em;
+}
+
+.question-passage .passage-center {
+  text-align: center;
+}
+
+.question-passage .passage-right {
+  text-align: right;
+}
+
+.question-passage .passage-note {
+  color: var(--color-slate-500);
+  font-size: 0.9rem;
+}
+
+.question-passage u {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.question-passage ul,
+.question-passage ol {
+  margin: 0 0 1em;
+  padding-left: 1.5em;
+  list-style: disc;
+}
+
+.question-passage ol {
+  list-style: decimal;
+}
+
+.question-passage li {
+  margin-bottom: 0.35em;
+}
+
+.question-passage .question-table caption {
+  padding-bottom: var(--space-2);
+  font-weight: 700;
+}
+
+/* The question itself, above its choices. */
+.question-stem {
+  margin-bottom: var(--space-5);
+  color: var(--color-slate-700);
+  font-size: 1.15rem;
+  line-height: 1.6;
 }
 
 .tools-bar {
@@ -103,6 +187,10 @@
 }
 
 .option-item__text {
+  /* Fill the row: an image inside sizes itself against this box, and a
+     shrink-to-fit box would let a graph offered as a choice collapse. */
+  flex: 1;
+  min-width: 0;
   color: var(--color-text);
   font-size: 1.1rem;
 }

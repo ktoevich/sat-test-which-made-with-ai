@@ -153,3 +153,27 @@ def test_section_ranges_reflect_the_reference_tables():
     assert Counter(section.domain for section in blueprint.MODULE_2_HIGHER.sections) == Counter(
         domain.name for domain in taxonomy.DOMAINS
     )
+
+
+@pytest.mark.parametrize("module", blueprint.READING_MODULES, ids=lambda module: module.key)
+def test_every_reading_module_is_27_multiple_choice_questions_grouped_by_domain(module):
+    assert blueprint.check(module) == []
+    assert module.section_key == "reading"
+    assert module.ordering == "domain"
+    assert (module.size, module.mcq_count, module.spr_count) == (27, 27, 0)
+    assert sum(band.count for band in module.bands) == 27
+    assert [section.domain for section in module.sections] == [
+        domain.name for domain in taxonomy.READING_DOMAINS
+    ]
+
+
+def test_the_reading_routes_skew_in_opposite_directions():
+    def hard(module):
+        return module.difficulty_counts()["Hard"]
+
+    assert hard(blueprint.READING_MODULE_2_LOWER) < hard(blueprint.READING_MODULE_1) < hard(
+        blueprint.READING_MODULE_2_HIGHER
+    )
+    assert blueprint.modules_for("reading") == blueprint.READING_MODULES
+    assert blueprint.modules_for(None) == blueprint.MODULES
+    assert blueprint.module_for("reading", "module_2_LOWER") is blueprint.READING_MODULE_2_LOWER

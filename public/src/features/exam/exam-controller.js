@@ -1,9 +1,9 @@
 /** Drives an attempt: loads modules, handles navigation and submission. */
 
-import { MODULE_DURATION_SECONDS } from '../../config.js';
+import { DEFAULT_SECTION, sectionOf } from '../../config.js';
 import { ApiError } from '../../api/client.js';
 import { fetchModule1, fetchModule2 } from '../../api/exam-api.js';
-import { byId, setText } from '../../core/dom.js';
+import { byId, setText, setVisible } from '../../core/dom.js';
 import { nextModuleTarget } from '../../core/scoring.js';
 import { hideLoading, runCountdown, showLoading } from '../../ui/loading-overlay.js';
 import { closeModal, openModal } from '../../ui/modal.js';
@@ -36,6 +36,7 @@ export class ExamController {
 
     this.elements = {
       sectionInfo: byId('section-info'),
+      calculatorButton: byId('calculator-btn'),
       prev: byId('prev-btn'),
       next: byId('next-btn'),
       flag: byId('flag-btn'),
@@ -68,16 +69,21 @@ export class ExamController {
     return this.#module.currentIndex;
   }
 
+  get #section() {
+    return sectionOf(this.session.section);
+  }
+
   /**
-   * Fetch module 1 and start the attempt.
+   * Fetch module 1 of a section and start the attempt.
+   * @param {string} section `math` or `reading`
    * @returns {Promise<boolean>} false when no test could be started.
    */
-  async startAttempt() {
+  async startAttempt(section = DEFAULT_SECTION) {
     showLoading('Checking for available tests');
     try {
-      const payload = await fetchModule1();
-      this.session.start(payload.test_id, payload.questions);
-      await this.#beginModule('Math: Module 1');
+      const payload = await fetchModule1(section);
+      this.session.start(payload.test_id, payload.questions, payload.section ?? section);
+      await this.#beginModule(1);
       return true;
     } catch (error) {
       hideLoading();
@@ -91,20 +97,23 @@ export class ExamController {
     try {
       const payload = await fetchModule2({ testId: this.session.testId, target });
       this.session.advanceTo(2, payload.questions);
-      await this.#beginModule('Math: Module 2');
+      await this.#beginModule(2);
     } catch (error) {
       hideLoading();
       this.onUnavailable(ExamController.#messageFor(error, 'Could not load Module 2.'));
     }
   }
 
-  async #beginModule(label) {
-    setText(this.elements.sectionInfo, label);
+  async #beginModule(number) {
+    const section = this.#section;
+    setText(this.elements.sectionInfo, `${section.label}: Module ${number}`);
     this.map.build(this.#module.size);
+    // Only the math section offers the calculator, as on the real test.
     this.calculator.reset();
+    setVisible(this.elements.calculatorButton, section.calculator);
     await runCountdown();
     this.#renderCurrent();
-    this.timer.start(MODULE_DURATION_SECONDS);
+    this.timer.start(section.minutes * 60);
   }
 
   #goTo(index) {
@@ -149,7 +158,7 @@ export class ExamController {
     const score = this.session.finishModule();
 
     if (this.#module.number === 1) {
-      this.#loadModule2(nextModuleTarget(score.correct, score.total));
+      this.#loadModule2(nextModuleTarget(score.correct, score.total, this.#section.passMark));
       return;
     }
     this.onFinished(this.session);

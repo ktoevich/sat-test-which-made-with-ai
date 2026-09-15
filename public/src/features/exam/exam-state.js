@@ -55,6 +55,8 @@ class ModuleState {
 export class ExamSession {
   constructor() {
     this.testId = null;
+    /** @type {string} the section key: `math` or `reading` */
+    this.section = 'math';
     this.module = null;
     /** @type {{module: number, number: number, question: object, userAnswer: string|null}[]} */
     this.review = [];
@@ -62,9 +64,10 @@ export class ExamSession {
     this.moduleScores = {};
   }
 
-  /** Begin a fresh attempt with module 1. */
-  start(testId, questions) {
+  /** Begin a fresh attempt of one section with module 1. */
+  start(testId, questions, section = 'math') {
     this.testId = testId;
+    this.section = section;
     this.review = [];
     this.moduleScores = {};
     this.module = new ModuleState(1, questions);

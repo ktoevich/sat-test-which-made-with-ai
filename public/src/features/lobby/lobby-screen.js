@@ -2,6 +2,7 @@
 
 import { listAttempts } from '../../api/attempts-api.js';
 import { ApiError } from '../../api/client.js';
+import { sectionOf } from '../../config.js';
 import { byId, clear, el, setText } from '../../core/dom.js';
 
 const DATE_OPTIONS = {
@@ -20,7 +21,7 @@ function formatDate(isoString) {
 
 export class LobbyScreen {
   /**
-   * @param {{ onStartTest: () => void,
+   * @param {{ onStartTest: (section: string) => void,
    *           onLogout: () => void,
    *           onViewAttempt: (attempt: object) => void }} handlers
    */
@@ -29,13 +30,17 @@ export class LobbyScreen {
     this.elements = {
       username: byId('lobby-username'),
       testsTaken: byId('stat-tests'),
-      bestScore: byId('stat-best'),
+      bestMath: byId('stat-best'),
+      bestReading: byId('stat-best-reading'),
       averageScore: byId('stat-average'),
       historyBody: byId('history-table-body'),
       noticeSlot: byId('lobby-notice-slot'),
     };
 
-    byId('start-test-btn').addEventListener('click', onStartTest);
+    // One start button per section; each names the section it starts.
+    for (const button of [byId('start-test-btn'), byId('start-reading-btn')]) {
+      button.addEventListener('click', () => onStartTest(button.dataset.section));
+    }
     byId('logout-btn').addEventListener('click', onLogout);
   }
 
@@ -49,8 +54,10 @@ export class LobbyScreen {
 
     try {
       const { attempts, summary } = await listAttempts();
+      const bySection = summary.by_section ?? {};
       setText(this.elements.testsTaken, summary.taken);
-      setText(this.elements.bestScore, summary.best ?? '-');
+      setText(this.elements.bestMath, bySection.math?.best ?? '-');
+      setText(this.elements.bestReading, bySection.reading?.best ?? '-');
       setText(this.elements.averageScore, summary.average ?? '-');
       this.#renderHistory(attempts);
     } catch (error) {
@@ -79,7 +86,7 @@ export class LobbyScreen {
   #renderPlaceholder(message) {
     clear(this.elements.historyBody);
     this.elements.historyBody.append(
-      el('tr', {}, [el('td', { className: 'data-table__empty', colspan: '4', text: message })]),
+      el('tr', {}, [el('td', { className: 'data-table__empty', colspan: '5', text: message })]),
     );
   }
 
@@ -104,6 +111,7 @@ export class LobbyScreen {
       body.append(
         el('tr', {}, [
           el('td', { text: formatDate(attempt.taken_at) }),
+          el('td', { text: sectionOf(attempt.section).label }),
           el('td', { text: attempt.score }),
           el('td', { text: `${attempt.correct}/${attempt.total}` }),
           el('td', {}, [viewButton]),

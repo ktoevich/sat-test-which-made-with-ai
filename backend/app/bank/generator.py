@@ -118,7 +118,7 @@ def generate_bank(
 
     bank: list[dict[str, Any]] = []
     for index, plan in enumerate(plans, start=1):
-        bundle: dict[str, Any] = {"test_id": f"{test_id_prefix}-{index:02d}"}
+        bundle: dict[str, Any] = {"test_id": f"{test_id_prefix}-{index:02d}", "section": spec.section}
         for key, module in plan.items():
             bundle[key] = exam_order(next(questions) for _ in module)
         bank.append(bundle)

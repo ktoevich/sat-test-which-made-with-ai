@@ -1,11 +1,12 @@
-"""The module structure of this mock test, transcribed from ``SAT test structure/``.
+"""The module structure of this mock test.
 
-The folder at the repository root holds the reference tables: for each module a
-difficulty band per question number, and for each content domain the subtopics
-it draws from and how many questions each contributes. This module encodes those
-tables so the assembler and the generator build modules that follow them.
+The math modules are transcribed from ``SAT test structure/``: the folder at the
+repository root holds the reference tables — for each module a difficulty band
+per question number, and for each content domain the subtopics it draws from
+and how many questions each contributes. This module encodes those tables so
+the assembler and the generator build modules that follow them.
 
-Every module has :data:`QUESTIONS_PER_MODULE` questions, of which
+Every math module has :data:`QUESTIONS_PER_MODULE` questions, of which
 :data:`MULTIPLE_CHOICE_PER_MODULE` are multiple choice and
 :data:`STUDENT_RESPONSE_PER_MODULE` are grid-ins. Module 1 is the same for
 everyone; the second module is the easier route below
@@ -14,6 +15,12 @@ or above it.
 
 The bank labels difficulty as Easy, Medium or Hard, so the harder route's
 "Medium Hard" and "Very Hard" bands both draw from the Hard pool.
+
+The Reading and Writing modules follow College Board's published shares: 27
+multiple-choice questions grouped by domain — Craft and Structure, Information
+and Ideas, Expression of Ideas, Standard English Conventions — and easy to hard
+inside each group, so their bands are counts rather than runs of question
+numbers. :func:`modules_for` gives the modules of either section.
 """
 
 from __future__ import annotations
@@ -83,10 +90,21 @@ class ModuleBlueprint:
     sections: tuple[Section, ...]
     size: int = QUESTIONS_PER_MODULE
     spr_count: int = STUDENT_RESPONSE_PER_MODULE
+    #: The test section this module belongs to: a :data:`taxonomy.SECTION_KEYS` key.
+    section_key: str = taxonomy.MATH.key
 
     @property
     def mcq_count(self) -> int:
         return self.size - self.spr_count
+
+    @property
+    def section(self) -> taxonomy.Section:
+        return taxonomy.section_of(self.section_key)
+
+    @property
+    def ordering(self) -> str:
+        """How the module runs: by difficulty, or grouped by domain."""
+        return self.section.ordering
 
     def difficulty_counts(self) -> dict[str, int]:
         """Questions per bank difficulty, in band order."""
@@ -403,3 +421,112 @@ MODULE_2_HIGHER = ModuleBlueprint(
 
 MODULES: tuple[ModuleBlueprint, ...] = (MODULE_1, MODULE_2_HIGHER, MODULE_2_LOWER)
 BY_KEY: dict[str, ModuleBlueprint] = {module.key: module for module in MODULES}
+
+
+# -- Reading and Writing ----------------------------------------------------
+
+_CRAFT = taxonomy.CRAFT_AND_STRUCTURE.name
+_INFORMATION = taxonomy.INFORMATION_AND_IDEAS.name
+_EXPRESSION = taxonomy.EXPRESSION_OF_IDEAS.name
+_CONVENTIONS = taxonomy.STANDARD_ENGLISH_CONVENTIONS.name
+
+WORDS_IN_CONTEXT = "Words in Context"
+TEXT_STRUCTURE = "Text Structure and Purpose"
+CROSS_TEXT = "Cross-Text Connections"
+CENTRAL_IDEAS = "Central Ideas and Details"
+COMMAND_OF_EVIDENCE = "Command of Evidence"
+INFERENCES = "Inferences"
+RHETORICAL_SYNTHESIS = "Rhetorical Synthesis"
+TRANSITIONS = "Transitions"
+BOUNDARIES = "Boundaries"
+FORM_STRUCTURE_SENSE = "Form, Structure, and Sense"
+
+READING_SIZE = taxonomy.READING.questions_per_module
+READING_ADAPTIVE_MIN_CORRECT = taxonomy.READING.adaptive_min_correct
+
+#: The domain mix is the same on every route; only the difficulty mix moves.
+_READING_SECTIONS = (
+    Section(_CRAFT, 7, 8, (
+        Topic("Words in Context", "the most precise word for a blank", (WORDS_IN_CONTEXT,), 3, 4),
+        Topic("Text Structure and Purpose", "why a sentence or text is there", (TEXT_STRUCTURE,), 2, 3),
+        Topic("Cross-Text Connections", "two texts on one subject", (CROSS_TEXT,), 1, 2),
+    )),
+    Section(_INFORMATION, 6, 7, (
+        Topic("Central Ideas and Details", "main idea, stated detail", (CENTRAL_IDEAS,), 2, 3),
+        Topic("Command of Evidence", "textual and quantitative evidence", (COMMAND_OF_EVIDENCE,), 2, 3),
+        Topic("Inferences", "the most logical completion", (INFERENCES,), 1, 2),
+    )),
+    Section(_EXPRESSION, 5, 6, (
+        Topic("Transitions", "the most logical transition word", (TRANSITIONS,), 2, 3),
+        Topic("Rhetorical Synthesis", "a student's notes into one sentence", (RHETORICAL_SYNTHESIS,), 2, 3),
+    )),
+    Section(_CONVENTIONS, 6, 7, (
+        Topic("Boundaries", "punctuation between clauses", (BOUNDARIES,), 3, 4),
+        Topic("Form, Structure, and Sense", "agreement, verb forms, modifiers", (FORM_STRUCTURE_SENSE,), 3, 4),
+    )),
+)
+
+
+def _reading_module(key: str, title: str, description: str, easy: int, medium: int, hard: int) -> ModuleBlueprint:
+    assert easy + medium + hard == READING_SIZE
+    return ModuleBlueprint(
+        key=key,
+        title=title,
+        description=description,
+        bands=(
+            Band("Easy", "Easy", 1, easy),
+            Band("Medium", "Medium", easy + 1, easy + medium),
+            Band("Hard", "Hard", easy + medium + 1, READING_SIZE),
+        ),
+        sections=_READING_SECTIONS,
+        size=READING_SIZE,
+        spr_count=0,
+        section_key=taxonomy.READING.key,
+    )
+
+
+READING_MODULE_1 = _reading_module(
+    "module_1",
+    "Reading and Writing — Module 1",
+    "Everyone starts here. The number of correct answers decides which module 2 follows.",
+    easy=9, medium=9, hard=9,
+)
+
+READING_MODULE_2_LOWER = _reading_module(
+    "module_2_LOWER",
+    "Reading and Writing — Module 2 — Lower",
+    f"The easier route, served after fewer than {READING_ADAPTIVE_MIN_CORRECT} of "
+    f"{READING_SIZE} correct answers in module 1.",
+    easy=13, medium=9, hard=5,
+)
+
+READING_MODULE_2_HIGHER = _reading_module(
+    "module_2_HIGHER",
+    "Reading and Writing — Module 2 — Higher",
+    f"The harder route, served after {READING_ADAPTIVE_MIN_CORRECT} or more of "
+    f"{READING_SIZE} correct answers in module 1.",
+    easy=4, medium=10, hard=13,
+)
+
+READING_MODULES: tuple[ModuleBlueprint, ...] = (
+    READING_MODULE_1,
+    READING_MODULE_2_HIGHER,
+    READING_MODULE_2_LOWER,
+)
+
+MODULES_BY_SECTION: dict[str, tuple[ModuleBlueprint, ...]] = {
+    taxonomy.MATH.key: MODULES,
+    taxonomy.READING.key: READING_MODULES,
+}
+
+ALL_MODULES: tuple[ModuleBlueprint, ...] = MODULES + READING_MODULES
+
+
+def modules_for(section_key: str | None) -> tuple[ModuleBlueprint, ...]:
+    """The three modules of a section; the math ones when no section is named."""
+    return MODULES_BY_SECTION[taxonomy.section_of(section_key).key]
+
+
+def module_for(section_key: str | None, key: str) -> ModuleBlueprint | None:
+    """One module of a section by its bundle key, e.g. ``module_2_LOWER``."""
+    return next((module for module in modules_for(section_key) if module.key == key), None)

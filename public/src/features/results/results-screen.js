@@ -2,6 +2,7 @@
 
 import { saveAttempt } from '../../api/attempts-api.js';
 import { ApiError } from '../../api/client.js';
+import { sectionOf } from '../../config.js';
 import { byId, clear, el, setHtml, setText, setVisible, show } from '../../core/dom.js';
 import { toScaledScore } from '../../core/scoring.js';
 import { difficultyTag, statusBadge } from './answer-summary.js';
@@ -16,6 +17,7 @@ export class ResultsScreen {
       title: byId('intermission-title'),
       message: byId('intermission-message'),
       card: byId('final-results'),
+      scoreTitle: byId('score-title'),
       scoreValue: byId('score-value'),
       scoreFill: byId('score-fill'),
       details: byId('score-details'),
@@ -41,9 +43,11 @@ export class ResultsScreen {
   show(session) {
     const { correct, total } = session.totals;
     const score = toScaledScore(correct, total);
+    const section = sectionOf(session.section);
 
     setText(this.elements.title, 'Test Complete!');
     setText(this.elements.message, 'Here is your detailed performance summary.');
+    setText(this.elements.scoreTitle, `Your SAT ${section.label} Score`);
     renderScoreBubble(
       { valueEl: this.elements.scoreValue, fillEl: this.elements.scoreFill },
       score,
@@ -54,7 +58,7 @@ export class ResultsScreen {
     show(this.elements.card);
     show(this.elements.screen);
 
-    this.#save({ score, correct, total, details: session.review });
+    this.#save({ section: section.key, score, correct, total, details: session.review });
   }
 
   async #save(attempt) {

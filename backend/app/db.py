@@ -70,6 +70,7 @@ def schema_statements(dialect: str) -> list[str]:
             id       {_serial(dialect)},
             user_id  BIGINT  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             taken_at TEXT    NOT NULL,
+            section  TEXT    NOT NULL DEFAULT 'math',
             score    INTEGER NOT NULL,
             correct  INTEGER NOT NULL,
             total    INTEGER NOT NULL,
@@ -80,12 +81,29 @@ def schema_statements(dialect: str) -> list[str]:
         """
         CREATE TABLE IF NOT EXISTS question_bundles (
             test_id    TEXT    PRIMARY KEY,
+            section    TEXT    NOT NULL DEFAULT 'math',
             position   INTEGER NOT NULL,
             payload    TEXT    NOT NULL,
             updated_at TEXT    NOT NULL
         )
         """,
         "CREATE INDEX IF NOT EXISTS idx_bundles_position ON question_bundles(position)",
+    ]
+
+
+def migration_statements(dialect: str) -> list[str]:
+    """Columns added after the tables first shipped.
+
+    Both ``section`` columns arrived with the Reading and Writing section; a
+    database created before then has the tables without them. Every row from
+    that time is a math one, which is what the default says. SQLite has no
+    ``ADD COLUMN IF NOT EXISTS``, so there the statement is expected to fail
+    once the column exists and :meth:`Database.init_schema` lets it.
+    """
+    if_absent = "IF NOT EXISTS " if dialect == POSTGRES else ""
+    return [
+        f"ALTER TABLE attempts ADD COLUMN {if_absent}section TEXT NOT NULL DEFAULT 'math'",
+        f"ALTER TABLE question_bundles ADD COLUMN {if_absent}section TEXT NOT NULL DEFAULT 'math'",
     ]
 
 
@@ -136,6 +154,15 @@ class Database:
         for statement in schema_statements(self.dialect):
             self.execute(statement)
         self.commit()
+        for statement in migration_statements(self.dialect):
+            try:
+                self.execute(statement)
+                self.commit()
+            except Exception:
+                # The column is already there. PostgreSQL aborts the
+                # transaction on any error, so it has to be rolled back
+                # before the connection is usable again.
+                self.rollback()
 
 
 def _connect_sqlite(path: str | Path) -> Database:
