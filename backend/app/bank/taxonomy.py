@@ -1,13 +1,18 @@
-"""The Digital SAT Math blueprint: section structure, domains and skills.
+"""The Digital SAT blueprint: the two sections, their domains and skills.
 
 These are the published structural facts about the test — how long a module is,
 how many questions it holds, and the names of the content domains and the skills
 under each. Templates declare which of these they cover, and the generator uses
 the domain shares to balance a bank.
 
+The math section came first and its constants are module-level; the Reading
+and Writing section is described the same way through :class:`Section`, and
+:data:`SECTIONS` lists both.
+
 Source: College Board's SAT Suite specifications
-(https://satsuite.collegeboard.org/k12-educators/about/alignment/math and
-https://satsuite.collegeboard.org/sat/whats-on-the-test/structure).
+(https://satsuite.collegeboard.org/k12-educators/about/alignment/math,
+https://satsuite.collegeboard.org/k12-educators/about/alignment/reading-writing
+and https://satsuite.collegeboard.org/sat/whats-on-the-test/structure).
 """
 
 from __future__ import annotations
@@ -96,22 +101,149 @@ GEOMETRY = Domain(
     ),
 )
 
+#: The math content domains, in the order College Board lists them.
 DOMAINS: tuple[Domain, ...] = (ALGEBRA, ADVANCED_MATH, PROBLEM_SOLVING, GEOMETRY)
 
-BY_NAME: dict[str, Domain] = {domain.name: domain for domain in DOMAINS}
-
-#: Domain name -> share of the section.
+#: Domain name -> share of the math section.
 DOMAIN_SHARES: dict[str, float] = {domain.name: domain.share for domain in DOMAINS}
 
-#: Every skill name in the blueprint.
+#: Every math skill name in the blueprint.
 ALL_SKILLS: frozenset[str] = frozenset(
     skill for domain in DOMAINS for skill in domain.skills
 )
 
 
+# -- Reading and Writing -------------------------------------------------
+
+CRAFT_AND_STRUCTURE = Domain(
+    key="craft_and_structure",
+    name="Craft and Structure",
+    share=0.28,
+    skills=(
+        "Words in Context",
+        "Text Structure and Purpose",
+        "Cross-Text Connections",
+    ),
+)
+
+INFORMATION_AND_IDEAS = Domain(
+    key="information_and_ideas",
+    name="Information and Ideas",
+    share=0.26,
+    skills=(
+        "Central Ideas and Details",
+        "Command of Evidence",
+        "Inferences",
+    ),
+)
+
+EXPRESSION_OF_IDEAS = Domain(
+    key="expression_of_ideas",
+    name="Expression of Ideas",
+    share=0.20,
+    skills=(
+        "Rhetorical Synthesis",
+        "Transitions",
+    ),
+)
+
+STANDARD_ENGLISH_CONVENTIONS = Domain(
+    key="standard_english_conventions",
+    name="Standard English Conventions",
+    share=0.26,
+    skills=(
+        "Boundaries",
+        "Form, Structure, and Sense",
+    ),
+)
+
+#: The Reading and Writing domains, in the order a module presents them.
+READING_DOMAINS: tuple[Domain, ...] = (
+    CRAFT_AND_STRUCTURE,
+    INFORMATION_AND_IDEAS,
+    EXPRESSION_OF_IDEAS,
+    STANDARD_ENGLISH_CONVENTIONS,
+)
+
+
+# -- The two sections ----------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Section:
+    """One of the test's two sections and how its modules are built."""
+
+    key: str
+    name: str
+    minutes_per_module: int
+    questions_per_module: int
+    multiple_choice_per_module: int
+    #: Correct answers in module 1 that lead to the harder module 2.
+    adaptive_min_correct: int
+    domains: tuple[Domain, ...]
+    #: How a module is ordered: ``"difficulty"`` runs easy to hard;
+    #: ``"domain"`` groups the questions by domain, easy to hard inside each.
+    ordering: str
+
+    @property
+    def student_response_per_module(self) -> int:
+        return self.questions_per_module - self.multiple_choice_per_module
+
+    def skills(self) -> frozenset[str]:
+        return frozenset(skill for domain in self.domains for skill in domain.skills)
+
+
+MATH = Section(
+    key="math",
+    name="Math",
+    minutes_per_module=MINUTES_PER_MODULE,
+    questions_per_module=QUESTIONS_PER_MODULE,
+    multiple_choice_per_module=MULTIPLE_CHOICE_PER_MODULE,
+    adaptive_min_correct=15,
+    domains=DOMAINS,
+    ordering="difficulty",
+)
+
+#: Reading and Writing: two modules of 27 multiple-choice questions, 32 minutes
+#: each, every question a short passage with one question about it. The
+#: questions come grouped by domain, in :data:`READING_DOMAINS` order, and run
+#: easy to hard inside each group.
+READING = Section(
+    key="reading",
+    name="Reading and Writing",
+    minutes_per_module=32,
+    questions_per_module=27,
+    multiple_choice_per_module=27,
+    adaptive_min_correct=18,
+    domains=READING_DOMAINS,
+    ordering="domain",
+)
+
+SECTIONS: tuple[Section, ...] = (MATH, READING)
+SECTION_BY_KEY: dict[str, Section] = {section.key: section for section in SECTIONS}
+SECTION_KEYS: tuple[str, ...] = tuple(section.key for section in SECTIONS)
+#: Banks and requests that do not say which section they mean are math ones:
+#: that is what the app served before it had a second section.
+DEFAULT_SECTION = MATH.key
+
+#: Every domain of both sections.
+ALL_DOMAINS: tuple[Domain, ...] = DOMAINS + READING_DOMAINS
+
+BY_NAME: dict[str, Domain] = {domain.name: domain for domain in ALL_DOMAINS}
+
+
+def section_of(key: str | None) -> Section:
+    """The section for a key, the default section for a missing one."""
+    return SECTION_BY_KEY[key or DEFAULT_SECTION]
+
+
+def section_of_domain(name: str) -> Section | None:
+    return next((section for section in SECTIONS if name in {d.name for d in section.domains}), None)
+
+
 def domain_of(skill: str) -> Domain | None:
-    """Find the domain a skill belongs to."""
-    return next((domain for domain in DOMAINS if skill in domain.skills), None)
+    """Find the domain a skill belongs to, in either section."""
+    return next((domain for domain in ALL_DOMAINS if skill in domain.skills), None)
 
 
 def target_counts(total: int) -> dict[str, int]:

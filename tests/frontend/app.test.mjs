@@ -70,7 +70,7 @@ test('a full attempt, from sign-up to saved history', async (t) => {
   await t.test('starting a test loads module 1 after the countdown', async () => {
     click('start-test-btn');
     await wait(50);
-    assert.ok(app.requests.includes('GET /api/tests/module-1'));
+    assert.ok(app.requests.includes('GET /api/tests/module-1?section=math'));
 
     await wait(COUNTDOWN_WAIT_MS);
     assert.ok(isVisible('exam-screen'));
@@ -179,8 +179,10 @@ test('a full attempt, from sign-up to saved history', async (t) => {
     assert.ok(isVisible('lobby-screen'));
     assert.ok(!isVisible('intermission-screen'));
     assert.equal(all('tr', byId('history-table-body')).length, 1);
+    assert.match(text('history-table-body'), /Math/);
     assert.equal(text('stat-tests'), '1');
     assert.equal(text('stat-best'), '680');
+    assert.equal(text('stat-best-reading'), '-');
     assert.equal(text('stat-average'), '680');
   });
 
@@ -245,4 +247,81 @@ test('a saved token signs the student straight back in', async () => {
   assert.ok(isVisible('lobby-screen'));
   assert.equal(text('lobby-username'), 'Repeat');
   assert.ok(app.window.localStorage.getItem('sat_session_token'), 'the token should be stored');
+});
+
+
+test('a Reading and Writing attempt shows the passage beside the question', async (t) => {
+  const backend = fakeBackend();
+  const app = await bootApp({ fetchImpl: backend });
+  const { byId, isVisible, text, click, submit, all } = domHelpers(app.window);
+
+  click('auth-tab-register');
+  byId('auth-username').value = 'Reader';
+  byId('auth-email').value = 'reader@example.com';
+  byId('auth-password').value = PASSWORD;
+  byId('auth-confirm').value = PASSWORD;
+  submit('auth-form');
+  await flush();
+  await flush();
+
+  await t.test('the lobby starts the section the button names', async () => {
+    click('start-reading-btn');
+    await flush();
+    assert.ok(app.requests.includes('GET /api/tests/module-1?section=reading'));
+    await wait(COUNTDOWN_WAIT_MS);
+    assert.equal(text('section-info'), 'Reading and Writing: Module 1');
+    assert.equal(text('timer-value'), '32:00');
+    assert.ok(!isVisible('calculator-btn'), 'no calculator outside the math section');
+  });
+
+  await t.test('the passage is on the left, the question above its choices', () => {
+    const passage = byId('question-text');
+    assert.ok(passage.classList.contains('question-passage'));
+    assert.ok(passage.classList.contains('no-math'), 'prose is kept away from KaTeX');
+    assert.ok(passage.querySelector('u'), 'the underlined sentence survives');
+    assert.match(passage.textContent, /costs \$5/);
+    assert.ok(isVisible('question-stem'));
+    assert.match(text('question-stem'), /^1\. Which choice best states the purpose of passage r1a\?/);
+    assert.equal(all('.option-item', byId('options-list')).length, 4);
+  });
+
+  await t.test('the pass mark and the score follow the section', async () => {
+    // 1 of 3 right: below 18/27 scaled to 3 (2 needed), so the lower module 2.
+    click(all('.option-item__content', byId('options-list'))[0]);
+    click('next-btn');
+    click(all('.option-item__content', byId('options-list'))[3]);
+    click('next-btn');
+    click('next-btn');
+    click('finish-confirm-btn');
+    await wait(50);
+    assert.ok(app.requests.includes('GET /api/tests/module-2?test_id=r1&target=LOWER'));
+    await wait(COUNTDOWN_WAIT_MS);
+    assert.equal(text('section-info'), 'Reading and Writing: Module 2');
+
+    click(all('.option-item__content', byId('options-list'))[0]);
+    click('next-btn');
+    click('next-btn');
+    click('finish-confirm-btn');
+    await flush();
+    assert.ok(isVisible('final-results'));
+    assert.equal(text('score-title'), 'Your SAT Reading and Writing Score');
+    assert.ok(app.requests.includes('POST /api/attempts'));
+  });
+
+  await t.test('the solution modal shows the passage too', () => {
+    click(all('.btn-view', byId('review-table-body'))[0]);
+    assert.ok(isVisible('solution-passage'));
+    assert.match(text('solution-passage'), /Passage r1a/);
+    assert.match(text('solution-text'), /purpose of passage r1a/);
+    click(byId('solution-modal').querySelector('[data-close-modal]'));
+  });
+
+  await t.test('the history knows the section', async () => {
+    click('back-to-lobby-btn');
+    await flush();
+    await flush();
+    assert.match(text('history-table-body'), /Reading and Writing/);
+    assert.equal(text('stat-best'), '-');
+    assert.notEqual(text('stat-best-reading'), '-');
+  });
 });

@@ -3,7 +3,7 @@
 import { renderQuestionFigure } from '../../core/coordinate-grid.js';
 import { byId, escapeHtml, setHtml, setText, setVisible } from '../../core/dom.js';
 import { renderMath } from '../../core/katex.js';
-import { cleanText, formatParagraphs } from '../../core/questions.js';
+import { cleanText, formatParagraphs, hasPassage } from '../../core/questions.js';
 import { openModal } from '../../ui/modal.js';
 import { describeAnswers } from './answer-summary.js';
 
@@ -11,6 +11,7 @@ const elements = () => ({
   modal: byId('solution-modal'),
   title: byId('solution-title'),
   figure: byId('solution-figure'),
+  passage: byId('solution-passage'),
   text: byId('solution-text'),
   rationale: byId('solution-rationale'),
   userAnswer: byId('solution-user-answer'),
@@ -29,8 +30,16 @@ export function openSolution(entry) {
   setHtml(ui.figure, figure);
   setVisible(ui.figure, Boolean(figure));
 
-  // The prompt is markup, as in the exam: a data table, a formula image.
-  setHtml(ui.text, formatParagraphs(question.text));
+  // The prompt is markup, as in the exam: a data table, a formula image, or
+  // for Reading and Writing the passage and then the question — prose that
+  // the formula renderer must leave alone.
+  const reading = hasPassage(question);
+  setHtml(ui.passage, reading ? question.passage : '');
+  setVisible(ui.passage, reading);
+  setHtml(ui.text, reading ? question.text : formatParagraphs(question.text));
+  ui.text.classList.toggle('no-math', reading);
+  ui.rationale.classList.toggle('no-math', reading);
+  ui.userAnswer.parentElement.classList.toggle('no-math', reading);
   renderRationale(ui.rationale, question);
 
   setHtml(ui.userAnswer, answers.userHtml);

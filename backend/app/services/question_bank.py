@@ -14,6 +14,8 @@ import random
 from pathlib import Path
 from typing import Any
 
+from ..bank.ordering import bundle_section
+from ..bank.taxonomy import SECTION_KEYS
 from . import bank_store
 
 logger = logging.getLogger(__name__)
@@ -60,13 +62,13 @@ class QuestionBank:
             # the student should ever see.
             return None
 
-    def _stored_count(self) -> int | None:
+    def _stored_count(self, section: str | None = None) -> int | None:
         """How many tests the database holds, or None when it cannot say."""
         database = self._database()
         if database is None:
             return None
         try:
-            return bank_store.count(database)
+            return bank_store.count(database, section)
         except Exception:
             logger.warning("Could not read the stored question bank", exc_info=True)
             return None
@@ -118,25 +120,48 @@ class QuestionBank:
             self._mtime = mtime
         return self._bundles
 
-    def count(self) -> int:
-        """How many tests can be served, without reading any of them."""
+    def count(self, section: str | None = None) -> int:
+        """How many tests can be served, in one section or in all, without reading any."""
         stored = self._stored_count()
-        return stored if stored else len(self.load())
+        if stored:
+            return self._stored_count(section) or 0 if section else stored
+        return len(self._from_file(section))
+
+    def counts_by_section(self) -> dict[str, int]:
+        """Tests available per section, for the health check and the lobby."""
+        return {section: self.count(section) for section in SECTION_KEYS}
 
     @property
     def is_empty(self) -> bool:
         return self.count() == 0
 
+    def has_section(self, section: str) -> bool:
+        return self.count(section) > 0
+
     # -- queries ---------------------------------------------------------
 
-    def random_bundle(self, *, rng: random.Random | None = None) -> Bundle:
-        bundle = self._stored(lambda database: bank_store.fetch_random(database, rng))
-        if bundle is not None:
-            return bundle
-
+    def _from_file(self, section: str | None = None) -> list[Bundle]:
         bundles = self.load()
+        if section is None:
+            return bundles
+        return [bundle for bundle in bundles if bundle_section(bundle) == section]
+
+    def random_bundle(
+        self, *, rng: random.Random | None = None, section: str | None = None
+    ) -> Bundle:
+        """A random test, of ``section`` when one is named."""
+        if self._stored_count():
+            bundle = self._stored(
+                lambda database: bank_store.fetch_random(database, rng, section)
+            )
+            if bundle is not None:
+                return bundle
+
+        bundles = self._from_file(section)
         if not bundles:
-            raise QuestionBankError("The question bank is empty")
+            raise QuestionBankError(
+                f"The question bank has no {section} tests" if section else "The question bank is empty"
+            )
         return (rng or random).choice(bundles)
 
     def get_bundle(self, test_id: str | None) -> Bundle | None:

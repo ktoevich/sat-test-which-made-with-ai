@@ -5,6 +5,7 @@
     python -m app.cli blueprint
     python -m app.cli generate --bundles 3 -o data/tests_bundle_cache.json
     python -m app.cli import export.csv --bundles 2 -o data/tests_bundle_cache.json
+    python -m app.cli import reading.json --section reading --bundles 2
     python -m app.cli reorder  [--bank PATH]
     python -m app.cli export -o ../answer-keys
     python -m app.cli bank --database "$POSTGRES_URL" push
@@ -40,7 +41,9 @@ from .bank import (
     validate_bank,
 )
 from .bank import blueprint as blueprint_tables
+from .bank import taxonomy
 from .bank.importer import ImportError_
+from .bank.ordering import bundle_section
 from .config import BaseConfig
 from . import cli_bank, cli_users
 
@@ -58,16 +61,45 @@ def _read_bank(path: Path) -> Any:
 
 
 def _write_bank(bundles: list[dict], path: Path, *, force: bool) -> None:
+    """Write ``bundles`` to ``path``.
+
+    The bank file holds both sections, and a build only ever makes one of
+    them, so an existing file keeps its tests of the other section: the maths
+    tests survive a Reading and Writing import and the other way round.
+    """
     if path.exists() and not force:
         raise SystemExit(f"{path} already exists; pass --force to overwrite it")
 
     assert_valid(bundles)
+    built = {bundle_section(bundle) for bundle in bundles}
+    kept = [
+        bundle
+        for bundle in _existing_bank(path)
+        if bundle_section(bundle) not in built
+    ]
+    bank = kept + bundles
+
+    assert_valid(bank)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(bundles, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(bank, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     counts = summarise(bundles)
     print(f"wrote {counts['bundles']} bundle(s), {counts['questions']} questions -> {path}")
+    if kept:
+        sections = ", ".join(sorted({bundle_section(bundle) for bundle in kept}))
+        print(f"  kept the {len(kept)} existing {sections} test(s) in the file")
     _print_counts(counts)
+
+
+def _existing_bank(path: Path) -> list[dict]:
+    """The bundles already in ``path``; nothing when it is missing or not a bank."""
+    if not path.is_file():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+    return data if isinstance(data, list) and not validate_bank(data) else []
 
 
 def _print_counts(counts: dict[str, Any]) -> None:
@@ -103,23 +135,34 @@ def cmd_stats(args: argparse.Namespace) -> int:
 
 
 def cmd_blueprint(args: argparse.Namespace) -> int:
-    """Print the module structure the generator follows."""
-    print(
-        f"{blueprint_tables.QUESTIONS_PER_MODULE} questions per module: "
-        f"{blueprint_tables.MULTIPLE_CHOICE_PER_MODULE} multiple choice, "
-        f"{blueprint_tables.STUDENT_RESPONSE_PER_MODULE} grid-ins. "
-        f"Module 2 is the harder route from {blueprint_tables.ADAPTIVE_MIN_CORRECT} correct in module 1."
-    )
-    for module in blueprint_tables.MODULES:
-        print(f"\n{module.title}  ({module.key})")
-        print(f"  {module.description}")
+    """Print the module structure the generator and the importer follow."""
+    for section in taxonomy.SECTIONS:
+        print(
+            f"{section.name}: {section.questions_per_module} questions per module, "
+            f"{section.minutes_per_module} minutes — "
+            f"{section.multiple_choice_per_module} multiple choice, "
+            f"{section.student_response_per_module} grid-ins. "
+            f"Module 2 is the harder route from {section.adaptive_min_correct} correct in module 1."
+        )
+        for module in blueprint_tables.modules_for(section.key):
+            _print_module(module)
+        print()
+    return 0
+
+
+def _print_module(module: blueprint_tables.ModuleBlueprint) -> None:
+    print(f"\n{module.title}  ({module.key})")
+    print(f"  {module.description}")
+    if module.ordering == "domain":
+        counts = ", ".join(f"{band.label} {band.count}" for band in module.bands)
+        print(f"  grouped by domain, easy first inside each group: {counts}")
+    else:
         bands = ", ".join(f"{band.first}-{band.last} {band.label}" for band in module.bands)
         print(f"  questions {bands}")
-        for section in module.sections:
-            print(f"  {section.domain} ({_span(section.minimum, section.maximum)})")
-            for topic in section.topics:
-                print(f"    {_span(topic.minimum, topic.maximum):>4}  {topic.label}: {topic.note}")
-    return 0
+    for section in module.sections:
+        print(f"  {section.domain} ({_span(section.minimum, section.maximum)})")
+        for topic in section.topics:
+            print(f"    {_span(topic.minimum, topic.maximum):>4}  {topic.label}: {topic.note}")
 
 
 def _span(low: int, high: int) -> str:
@@ -179,14 +222,15 @@ def cmd_import(args: argparse.Namespace) -> int:
         print(f"skipped: {problem}", file=sys.stderr)
     print(f"read {len(questions)} question(s) from {args.source}")
 
-    spec = default_spec(size=args.module_size, spr_count=args.spr)
+    spec = default_spec(size=args.module_size, spr_count=args.spr, section=args.section)
+    prefix = args.prefix or ("sat-imported" if args.section == taxonomy.MATH.key else f"sat-{args.section}")
     try:
         bundles = assemble_bank(
             questions,
             bundles=args.bundles,
             spec=spec,
             rng=random.Random(args.seed),
-            test_id_prefix=args.prefix,
+            test_id_prefix=prefix,
         )
     except (AssemblyError, BlueprintError) as error:
         raise SystemExit(str(error)) from error
@@ -198,20 +242,20 @@ def cmd_import(args: argparse.Namespace) -> int:
 # -- parser ------------------------------------------------------------
 
 
-def _add_build_arguments(parser: argparse.ArgumentParser, prefix: str) -> None:
+def _add_build_arguments(parser: argparse.ArgumentParser, prefix: str | None) -> None:
     parser.add_argument("-o", "--output", type=Path, default=DEFAULT_BANK, help="where to write the bank")
     parser.add_argument("--bundles", type=int, default=1, help="how many tests to build")
     parser.add_argument(
         "--module-size",
         type=int,
-        default=blueprint_tables.QUESTIONS_PER_MODULE,
-        help="questions per module",
+        default=None,
+        help="questions per module (default: the section's own, 22 for math)",
     )
     parser.add_argument(
         "--spr",
         type=int,
-        default=blueprint_tables.STUDENT_RESPONSE_PER_MODULE,
-        help="grid-in questions per module",
+        default=None,
+        help="grid-in questions per module (default: the section's own, 5 for math)",
     )
     parser.add_argument("--seed", type=int, default=None, help="seed for reproducible output")
     parser.add_argument("--prefix", default=prefix, help="prefix for generated test ids")
@@ -254,7 +298,13 @@ def build_parser() -> argparse.ArgumentParser:
     importer.add_argument(
         "--skip-invalid", action="store_true", help="drop unusable rows instead of failing"
     )
-    _add_build_arguments(importer, "sat-imported")
+    importer.add_argument(
+        "--section",
+        choices=taxonomy.SECTION_KEYS,
+        default=taxonomy.MATH.key,
+        help="which section the questions are for; decides the module structure",
+    )
+    _add_build_arguments(importer, None)
     importer.set_defaults(func=cmd_import)
 
     cli_bank.register(sub, DEFAULT_DATABASE, DEFAULT_BANK)

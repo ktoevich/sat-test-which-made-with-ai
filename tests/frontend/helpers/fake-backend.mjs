@@ -3,7 +3,7 @@
  * request/response shapes without running a server.
  */
 
-import { MODULE_1, MODULE_2 } from './fixtures.mjs';
+import { MODULE_1, MODULE_2, READING_MODULE_1, READING_MODULE_2 } from './fixtures.mjs';
 
 const json = (status, body) => ({
   ok: status < 400,
@@ -100,6 +100,7 @@ export function fakeBackend({ bankEmpty = false } = {}) {
         const attempt = {
           id: nextAttemptId,
           taken_at: new Date().toISOString(),
+          section: payload.section ?? 'math',
           score: payload.score,
           correct: payload.correct,
           total: payload.total,
@@ -110,15 +111,24 @@ export function fakeBackend({ bankEmpty = false } = {}) {
         return json(201, { attempt });
       }
 
-      const scores = history.map((a) => a.score);
-      return json(200, {
-        attempts: history,
-        summary: {
-          taken: history.length,
+      const aggregate = (items) => {
+        const scores = items.map((a) => a.score);
+        return {
+          taken: items.length,
           best: scores.length ? Math.max(...scores) : null,
           average: scores.length
             ? Math.round(scores.reduce((sum, value) => sum + value, 0) / scores.length)
             : null,
+        };
+      };
+      return json(200, {
+        attempts: history,
+        summary: {
+          ...aggregate(history),
+          by_section: {
+            math: aggregate(history.filter((a) => a.section === 'math')),
+            reading: aggregate(history.filter((a) => a.section === 'reading')),
+          },
         },
       });
     }
@@ -127,9 +137,18 @@ export function fakeBackend({ bankEmpty = false } = {}) {
       if (state.bankEmpty) {
         return fail(503, 'bank_empty', 'No generated tests are available yet.');
       }
+      // Module 1 names its section; module 2 belongs to the test it continues.
+      const reading = path.endsWith('module-1')
+        ? url.searchParams.get('section') === 'reading'
+        : url.searchParams.get('test_id') === 'r1';
+      if (reading) {
+        return path.endsWith('module-1')
+          ? json(200, { test_id: 'r1', section: 'reading', module: 1, questions: READING_MODULE_1 })
+          : json(200, { test_id: 'r1', section: 'reading', module: 2, questions: READING_MODULE_2 });
+      }
       return path.endsWith('module-1')
-        ? json(200, { test_id: 't1', module: 1, questions: MODULE_1 })
-        : json(200, { test_id: 't1', module: 2, questions: MODULE_2 });
+        ? json(200, { test_id: 't1', section: 'math', module: 1, questions: MODULE_1 })
+        : json(200, { test_id: 't1', section: 'math', module: 2, questions: MODULE_2 });
     }
 
     return fail(404, 'not_found', `No API endpoint at ${path}`);

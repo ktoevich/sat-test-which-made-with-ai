@@ -1,8 +1,15 @@
-/** Renders one question: prompt, optional figure and the answer controls. */
+/**
+ * Renders one question: prompt, optional figure and the answer controls.
+ *
+ * A math question is its prompt on the left and the choices on the right. A
+ * Reading and Writing question carries a passage: that takes the left panel,
+ * and the question itself sits above the choices, as on the real test. Its
+ * markup is prose, so KaTeX is kept away from it — a passage can mention $5.
+ */
 
 import { renderQuestionFigure } from '../../core/coordinate-grid.js';
 import { byId, clear, el, escapeHtml, setHtml, setVisible } from '../../core/dom.js';
-import { QuestionType, formatParagraphs, splitOption } from '../../core/questions.js';
+import { QuestionType, formatParagraphs, hasPassage, splitOption } from '../../core/questions.js';
 import { renderMath } from '../../core/katex.js';
 
 export class QuestionView {
@@ -16,6 +23,7 @@ export class QuestionView {
     this.elements = {
       figure: byId('question-figure'),
       text: byId('question-text'),
+      stem: byId('question-stem'),
       options: byId('options-list'),
     };
   }
@@ -23,12 +31,22 @@ export class QuestionView {
   /** @param {import('./exam-state.js').ExamSession['module']} module */
   render(module) {
     const question = module.currentQuestion;
+    const number = `<strong>${module.currentIndex + 1}.</strong>`;
+    const reading = hasPassage(question);
 
     this.#renderFigure(question);
-    setHtml(
-      this.elements.text,
-      `<strong>${module.currentIndex + 1}.</strong> ${formatParagraphs(question.text)}`,
-    );
+    this.elements.text.classList.toggle('question-passage', reading);
+    this.elements.text.classList.toggle('no-math', reading);
+    this.elements.stem.classList.toggle('no-math', reading);
+    this.elements.options.classList.toggle('no-math', reading);
+    if (reading) {
+      setHtml(this.elements.text, question.passage);
+      setHtml(this.elements.stem, `${number} ${question.text}`);
+    } else {
+      setHtml(this.elements.text, `${number} ${formatParagraphs(question.text)}`);
+      setHtml(this.elements.stem, '');
+    }
+    setVisible(this.elements.stem, reading);
 
     clear(this.elements.options);
     if (question.type === QuestionType.MULTIPLE_CHOICE) {
@@ -37,8 +55,10 @@ export class QuestionView {
       this.#renderFreeResponse(module);
     }
 
-    renderMath(this.elements.text);
-    renderMath(this.elements.options);
+    if (!reading) {
+      renderMath(this.elements.text);
+      renderMath(this.elements.options);
+    }
   }
 
   #renderFigure(question) {

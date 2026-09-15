@@ -183,11 +183,21 @@ def _pair_up(
 
 @dataclass(frozen=True)
 class BundleSpec:
-    """The three modules that make up one test."""
+    """The three modules that make up one test of one section."""
 
     module_1: ModuleSpec = field(default_factory=lambda: ModuleSpec(bp.MODULE_1))
     module_2_higher: ModuleSpec = field(default_factory=lambda: ModuleSpec(bp.MODULE_2_HIGHER))
     module_2_lower: ModuleSpec = field(default_factory=lambda: ModuleSpec(bp.MODULE_2_LOWER))
+
+    @classmethod
+    def for_section(cls, section: str | None = None) -> "BundleSpec":
+        """The full-size modules of a section, the math ones by default."""
+        module_1, higher, lower = bp.modules_for(section)
+        return cls(ModuleSpec(module_1), ModuleSpec(higher), ModuleSpec(lower))
+
+    @property
+    def section(self) -> str:
+        return self.module_1.blueprint.section_key
 
     def modules(self) -> dict[str, ModuleSpec]:
         return {
@@ -210,12 +220,22 @@ class BundleSpec:
         return {key: spec.plan(rng, supports) for key, spec in self.modules().items()}
 
 
-def default_spec(size: int = DEFAULT_MODULE_SIZE, spr_count: int = DEFAULT_SPR_COUNT) -> BundleSpec:
-    """A bundle spec with a custom module size, keeping the blueprint's proportions."""
+def default_spec(
+    size: int | None = None, spr_count: int | None = None, section: str | None = None
+) -> BundleSpec:
+    """A bundle spec for ``section`` with a custom module size, keeping the blueprint's proportions.
+
+    A size or grid-in count left out is the section's own.
+    """
+    module_1, higher, lower = bp.modules_for(section)
+    if size is None:
+        size = module_1.size
+    if spr_count is None:
+        spr_count = module_1.spr_count if size == module_1.size else min(module_1.spr_count, size)
     return BundleSpec(
-        module_1=ModuleSpec(bp.MODULE_1.scaled(size, spr_count)),
-        module_2_higher=ModuleSpec(bp.MODULE_2_HIGHER.scaled(size, spr_count)),
-        module_2_lower=ModuleSpec(bp.MODULE_2_LOWER.scaled(size, spr_count)),
+        module_1=ModuleSpec(module_1.scaled(size, spr_count)),
+        module_2_higher=ModuleSpec(higher.scaled(size, spr_count)),
+        module_2_lower=ModuleSpec(lower.scaled(size, spr_count)),
     )
 
 
@@ -273,18 +293,22 @@ class QuestionPool:
 
 
 def assemble_bundle(
-    pool: QuestionPool, plan: Mapping[str, Sequence[Slot]], test_id: str
+    pool: QuestionPool,
+    plan: Mapping[str, Sequence[Slot]],
+    test_id: str,
+    section: str | None = None,
 ) -> dict[str, Any]:
     """Draw one full bundle. Questions are deep-copied so bundles stay independent.
 
-    Each module is stored the way the exam runs it — easy first, hard last —
-    so the bank, the papers in ``answer-keys/`` and the served module all
-    number the questions the same.
+    Each module is stored the way the exam runs it — easy first and hard last,
+    or grouped by domain for Reading and Writing — so the bank, the papers in
+    ``answer-keys/`` and the served module all number the questions the same.
     """
-    bundle: dict[str, Any] = {"test_id": test_id}
+    section = taxonomy.section_of(section).key
+    bundle: dict[str, Any] = {"test_id": test_id, "section": section}
     for key, slots in plan.items():
         questions = [question for slot in slots for question in pool.draw(slot)]
-        bundle[key] = exam_order(copy.deepcopy(question) for question in questions)
+        bundle[key] = exam_order((copy.deepcopy(question) for question in questions), section)
     return bundle
 
 
@@ -296,7 +320,7 @@ def assemble_bank(
     rng: random.Random | None = None,
     test_id_prefix: str = "sat-mock",
 ) -> list[dict[str, Any]]:
-    """Build ``bundles`` tests out of ``questions``."""
+    """Build ``bundles`` tests out of ``questions``, for the section of ``spec``."""
     spec = spec or BundleSpec()
     rng = rng or random.Random()
     needed = spec.size * bundles
@@ -307,6 +331,8 @@ def assemble_bank(
 
     pool = QuestionPool(questions, rng)
     return [
-        assemble_bundle(pool, spec.plan(rng, pool.supports), f"{test_id_prefix}-{index:02d}")
+        assemble_bundle(
+            pool, spec.plan(rng, pool.supports), f"{test_id_prefix}-{index:02d}", spec.section
+        )
         for index in range(1, bundles + 1)
     ]

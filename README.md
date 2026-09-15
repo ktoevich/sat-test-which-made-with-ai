@@ -1,10 +1,17 @@
-# SAT Practice — Digital SAT Math Mock Test
+# SAT Practice — Digital SAT Mock Test
 
-Adaptive two-module practice test for the digital SAT math section:
-module 1 is served from a pre-generated question bank, and the difficulty of
-module 2 follows how the student did in module 1. Every module is 22 questions
-— 17 multiple choice and 5 grid-ins — laid out by the tables in
-`SAT test structure/`.
+Adaptive two-module practice tests for both sections of the digital SAT.
+Module 1 is served from a pre-generated question bank, and the difficulty of
+module 2 follows how the student did in module 1.
+
+- **Math** — 22 questions per module (17 multiple choice, 5 grid-ins), 35
+  minutes, laid out by the tables in `SAT test structure/`, with the Desmos
+  calculator.
+- **Reading and Writing** — 27 multiple-choice questions per module, 32
+  minutes, each a short passage with one question about it, grouped by domain
+  the way the real test presents them.
+
+Each section is its own test with its own 200–800 score.
 
 - **Backend** — Flask API that serves modules from a JSON question bank.
 - **Frontend** — dependency-free ES modules (no build step) plus KaTeX for formulas
@@ -103,17 +110,18 @@ backend/
       bank_store.py      the bank held in the database, one row per test
       test_builder.py    numbers a module's questions, in the order the bank stores them
     bank/
-      taxonomy.py        the Digital SAT content domains and their skills
-      blueprint.py       the module structure from SAT test structure/
+      taxonomy.py        both sections, their content domains and skills
+      blueprint.py       the module structure: math from SAT test structure/, Reading and Writing from the published shares
       figures.py         SVG diagrams: triangles, bar charts, crossing lines
       schema.py          validation rules for a bank file
       importer.py        normalises an export you already have
       generator.py       builds original questions from templates
       assembler.py       turns a pool of questions into bundles
-      ordering.py        the order questions run in inside a module: easy first
+      ordering.py        the order questions run in inside a module: easy first, or by domain for Reading and Writing
       templates/         the question templates, by domain
       latex.py           LaTeX formatting helpers
     cli.py               validate / stats / blueprint / generate / import / reorder commands
+                         (import --section reading builds the other section)
     cli_bank.py          the `bank` commands: keep the bank in the database
   data/
     tests_bundle_cache.json   the question bank (not committed; build it)
@@ -155,7 +163,7 @@ Base path `/api`. Errors use one envelope: `{"error": {"code", "message"}}`.
 | Method | Path                                     | Description |
 | ------ | ---------------------------------------- | ----------- |
 | GET    | `/api/health`                            | Liveness plus the number of available tests |
-| GET    | `/api/tests/module-1`                    | Starts an attempt; returns `test_id` and module 1 |
+| GET    | `/api/tests/module-1?section=`           | Starts an attempt; returns `test_id`, `section` and module 1. `section` is `math` (default) or `reading` |
 | GET    | `/api/tests/module-2?test_id=&target=`   | Module 2 for that attempt; `target` is `HIGHER` or `LOWER` |
 | POST   | `/api/auth/register`                     | Create an account; returns a session token |
 | POST   | `/api/auth/login`                        | Sign in; returns a session token |
@@ -170,8 +178,12 @@ Everything under `/api/auth/me`, `/api/auth/logout` and `/api/attempts` needs an
 Response shape:
 
 ```json
-{ "test_id": "sat-questionbank-export-01", "module": 1, "questions": [ ... ] }
+{ "test_id": "sat-imported-01", "section": "math", "module": 1, "questions": [ ... ] }
 ```
+
+A Reading and Writing question carries its passage as markup in `passage`,
+next to the question in `text`. `POST /api/attempts` takes a `section` too,
+and the history summary reports `by_section`.
 
 Error codes: `bank_empty` (503, nothing generated yet), `test_not_found` (404),
 `invalid_request` (422), `not_found` (404).
@@ -201,6 +213,13 @@ module is put together, transcribed from the screenshots in
 
 The bank labels difficulty as Easy, Medium or Hard, so the harder route's
 "Medium Hard" and "Very Hard" bands both draw from the Hard pool.
+
+The Reading and Writing modules follow College Board's published shares, in
+the order the real test presents the domains — Craft and Structure 7–8,
+Information and Ideas 6–7, Expression of Ideas 5–6, Standard English
+Conventions 6–7 — easy to hard inside each group. Module 1 is 9 Easy, 9
+Medium, 9 Hard; the lower route 13 / 9 / 5, served below 18 of 27 correct;
+the higher route 4 / 10 / 13. `make blueprint` prints both sections.
 
 Domain ranges per module (subtopics are in the file, or run `make blueprint`):
 
@@ -296,6 +315,20 @@ content, and tens of megabytes); `question-bank/tools/` rebuilds it.
 cd question-bank && python3 tools/to_bank.py -o math-questions.json
 cd ../backend && .venv/bin/python -m app.cli import ../question-bank/math-questions.json --bundles 14 --force
 ```
+
+The Reading and Writing section is built the same way, into the same bank
+file — an import replaces only the tests of its own section and keeps the
+other's:
+
+```bash
+cd question-bank && python3 tools/to_bank.py --test reading -o reading-questions.json
+cd ../backend && .venv/bin/python -m app.cli import ../question-bank/reading-questions.json --section reading --bundles 14 --force
+```
+
+All 1,845 Reading and Writing questions convert. A passage is kept as markup —
+paragraphs, an underlined sentence, the blank the choices fill, a poem, a pair
+of texts, the odd table or chart — trimmed to the tags the frontend styles, and
+travels in the question's `passage` field.
 
 1,917 of the 1,922 maths questions convert; the other five state their answer
 only inside the worked solution, and a guessed key is worse than a missing

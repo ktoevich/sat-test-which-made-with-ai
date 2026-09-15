@@ -55,6 +55,8 @@ FIELD_ALIASES = {
     "image": "image",
     "figure": "image",
     "svg": "image",
+    "passage": "passage",
+    "stimulus": "passage",
 }
 
 TYPE_ALIASES = {
@@ -259,6 +261,11 @@ def normalise_question(row: dict[str, Any], *, index: int) -> Question:
     }
     if qtype == "MCQ":
         question["options"] = options
+
+    # A Reading and Writing question is a passage plus a question about it.
+    passage = str(mapped.get("passage") or "").strip()
+    if passage:
+        question["passage"] = passage
 
     # A grid-in can have several right spellings — "0.25" and "1/4" are the
     # same answer — and dropping them here would fail a correct student.

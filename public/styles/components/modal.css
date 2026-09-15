@@ -58,6 +58,14 @@
   text-align: center;
 }
 
+/* The passage of a Reading and Writing question, above the question itself. */
+.modal__passage {
+  margin-bottom: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-left: 3px solid var(--color-slate-300);
+  font-size: 1.05rem;
+}
+
 .modal__actions {
   display: flex;
   justify-content: flex-end;

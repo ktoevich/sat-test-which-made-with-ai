@@ -9,17 +9,18 @@ from ..bank.ordering import exam_order
 Question = dict[str, Any]
 
 
-def build_module(questions: Iterable[Question]) -> list[Question]:
-    """Number a module's questions from 1, in exam order.
+def build_module(questions: Iterable[Question], section: str | None = None) -> list[Question]:
+    """Number a module's questions from 1, in the exam order of ``section``.
 
-    The bank stores every module easy first and hard last, which is what the
-    difficulty bands of the blueprint ask for: with a 7 / 8 / 7 split,
-    questions 1-7 are easy, 8-15 medium and 16-22 hard. Sorting again here is
-    a stable no-op for such a module and a safety net for a bank that was not
-    reordered. Nothing is shuffled: the paper in ``answer-keys/`` and the exam
-    number the questions the same way.
+    The bank stores every module in that order already — a math module easy
+    first and hard last, which is what the difficulty bands of the blueprint
+    ask for (with a 7 / 8 / 7 split, questions 1-7 are easy, 8-15 medium and
+    16-22 hard), a Reading and Writing module grouped by domain. Sorting again
+    here is a stable no-op for such a module and a safety net for a bank that
+    was not reordered. Nothing is shuffled: the paper in ``answer-keys/`` and
+    the exam number the questions the same way.
     """
-    ordered = exam_order(questions)
+    ordered = exam_order(questions, section)
     for number, question in enumerate(ordered, start=1):
         question["id"] = number
     return ordered

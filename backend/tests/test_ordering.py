@@ -5,7 +5,7 @@ from app.bank import blueprint, exam_order, generate_bank, is_exam_order, order_
 from app.bank.assembler import assemble_bank
 from app.bank.schema import MODULE_KEYS
 from app.cli import main
-from tests.conftest import make_question
+from tests.conftest import make_question, make_reading_question
 
 
 def _bands_of(module_key: str) -> list[str]:
@@ -68,3 +68,61 @@ def test_reorder_command_rewrites_the_bank_in_place(tmp_path, bundle, capsys):
 
     assert main(["reorder", "--bank", str(path)]) == 0
     assert "already in exam order" in capsys.readouterr().out
+
+
+def test_a_reading_module_is_grouped_by_domain_and_easy_first_inside():
+    questions = [
+        make_reading_question("sec-hard", "Standard English Conventions", "Hard"),
+        make_reading_question("info-easy", "Information and Ideas", "Easy"),
+        make_reading_question("craft-medium", "Craft and Structure", "Medium"),
+        make_reading_question("expr-easy", "Expression of Ideas", "Easy"),
+        make_reading_question("craft-easy", "Craft and Structure", "Easy"),
+        make_reading_question("sec-easy", "Standard English Conventions", "Easy"),
+    ]
+    ordered = exam_order(questions, "reading")
+
+    assert [q["question_id"] for q in ordered] == [
+        "craft-easy",
+        "craft-medium",
+        "info-easy",
+        "expr-easy",
+        "sec-easy",
+        "sec-hard",
+    ]
+    assert is_exam_order(ordered, "reading")
+    assert not is_exam_order(questions, "reading")
+    # The same questions are "in order" for a math module only by difficulty.
+    assert not is_exam_order(ordered)
+
+
+def test_order_bank_orders_a_reading_bundle_by_its_own_rule(reading_bundle):
+    assert order_bank([reading_bundle]) == 1
+    assert [q["question_id"] for q in reading_bundle["module_1"]] == [
+        "r1-craft-easy",
+        "r1-craft-hard",
+        "r1-conventions",
+    ]
+
+
+def test_an_assembled_reading_bundle_follows_the_domain_order_and_the_bands():
+    from app.bank.assembler import BundleSpec
+
+    pool = [
+        make_reading_question(f"{domain.key}-{difficulty}-{i}", domain.name, difficulty)
+        | {"skill": domain.skills[i % len(domain.skills)]}
+        for domain in blueprint.taxonomy.READING_DOMAINS
+        for difficulty in ("Easy", "Medium", "Hard")
+        for i in range(30)
+    ]
+    (bundle,) = assemble_bank(
+        pool, bundles=1, spec=BundleSpec.for_section("reading"), rng=random.Random(3)
+    )
+
+    assert bundle["section"] == "reading"
+    for module in blueprint.READING_MODULES:
+        questions = bundle[module.key]
+        assert len(questions) == 27
+        assert is_exam_order(questions, "reading")
+        counts = {band.difficulty: band.count for band in module.bands}
+        assert {level: sum(1 for q in questions if q["difficulty"] == level) for level in counts} == counts
+        assert all(q["type"] == "MCQ" for q in questions)

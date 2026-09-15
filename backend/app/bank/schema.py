@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Iterable
 
-from .taxonomy import DIFFICULTIES
+from .taxonomy import DEFAULT_SECTION, DIFFICULTIES, SECTION_KEYS
 
 QUESTION_TYPES = ("MCQ", "SPR")
 MODULE_KEYS = ("module_1", "module_2_HIGHER", "module_2_LOWER")
@@ -54,6 +54,10 @@ def validate_question(question: Any, path: str) -> list[Issue]:
     for field in REQUIRED_QUESTION_FIELDS:
         if question.get(field) in (None, ""):
             issues.append(Issue(f"{path}.{field}", "is required"))
+
+    passage = question.get("passage")
+    if passage is not None and not isinstance(passage, str):
+        issues.append(Issue(f"{path}.passage", "must be a string of markup when present"))
 
     qtype = question.get("type")
     if qtype is not None and qtype not in QUESTION_TYPES:
@@ -144,6 +148,12 @@ def validate_bundle(bundle: Any, path: str) -> list[Issue]:
     if not str(bundle.get("test_id", "")).strip():
         issues.append(Issue(f"{path}.test_id", "is required"))
 
+    # A bundle that does not name its section is a math one, from before the
+    # bank had a second section.
+    section = bundle.get("section")
+    if section is not None and section not in SECTION_KEYS:
+        issues.append(Issue(f"{path}.section", f"must be one of {SECTION_KEYS}, got {section!r}"))
+
     seen_ids: set[str] = set()
     for key in MODULE_KEYS:
         section = bundle.get(key)
@@ -198,6 +208,7 @@ def summarise(data: Iterable[dict]) -> dict[str, Any]:
     totals: dict[str, Any] = {
         "bundles": 0,
         "questions": 0,
+        "by_section": {},
         "by_module": {},
         "by_type": {},
         "by_difficulty": {},
@@ -206,6 +217,7 @@ def summarise(data: Iterable[dict]) -> dict[str, Any]:
 
     for bundle in data:
         totals["bundles"] += 1
+        _bump(totals["by_section"], str(bundle.get("section") or DEFAULT_SECTION))
         for key in MODULE_KEYS:
             for question in bundle.get(key, []) or []:
                 totals["questions"] += 1

@@ -101,6 +101,53 @@ def test_import_builds_a_bank_from_a_csv(tmp_path, capsys):
     assert bank[0]["test_id"] == "sat-imported-01"
 
 
+def test_a_reading_import_keeps_the_math_tests_already_in_the_file(tmp_path, capsys):
+    from app.bank import taxonomy
+
+    output = tmp_path / "bank.json"
+    assert main(["generate", "--module-size", "6", "--spr", "2", "--seed", "2", "-o", str(output)]) == 0
+
+    source = tmp_path / "reading.json"
+    rows = [
+        {
+            "id": f"{domain.key}-{index}",
+            "question": f"Q{index}?",
+            "stimulus": f"<p>Passage {index}</p>",
+            "answer": "A",
+            "difficulty": ("Easy", "Medium", "Hard")[index % 3],
+            "domain": domain.name,
+            "skill": domain.skills[index % len(domain.skills)],
+            "options": ["A) one", "B) two", "C) three", "D) four"],
+        }
+        for domain in taxonomy.READING_DOMAINS
+        for index in range(12)
+    ]
+    source.write_text(json.dumps(rows), encoding="utf-8")
+
+    assert main(["import", str(source), "--section", "reading", "--module-size", "8",
+                 "--seed", "1", "-o", str(output), "--force"]) == 0
+    out = capsys.readouterr().out
+    assert "kept the 1 existing math test(s)" in out
+
+    bank = read(output)
+    assert schema.validate_bank(bank) == []
+    assert [(b["test_id"], b["section"]) for b in bank] == [
+        ("sat-generated-01", "math"),
+        ("sat-reading-01", "reading"),
+    ]
+    reading = bank[1]
+    assert all(q["type"] == "MCQ" and q["passage"] for q in reading["module_1"])
+    assert len(reading["module_1"]) == 8
+
+
+def test_the_blueprint_command_prints_both_sections(capsys):
+    assert main(["blueprint"]) == 0
+    out = capsys.readouterr().out
+    assert "Math: 22 questions per module, 35 minutes" in out
+    assert "Reading and Writing: 27 questions per module, 32 minutes" in out
+    assert "grouped by domain" in out
+
+
 def test_import_fails_when_the_source_is_too_small(tmp_path):
     source = tmp_path / "export.json"
     source.write_text(json.dumps([{"text": "q", "answer": "1"}]), encoding="utf-8")
