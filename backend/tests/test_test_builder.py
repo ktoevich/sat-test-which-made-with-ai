@@ -1,5 +1,3 @@
-import random
-
 from app.services import build_module
 from tests.conftest import make_question
 
@@ -13,11 +11,11 @@ def test_sorts_by_difficulty_with_grid_ins_in_the_mix():
         make_question("mcq-medium", "MCQ", "Medium"),
     ]
 
-    ordered = build_module(questions, rng=random.Random(0))
+    ordered = build_module(questions)
 
     assert [q["difficulty"] for q in ordered] == ["Easy", "Easy", "Medium", "Hard", "Hard"]
-    assert {q["question_id"] for q in ordered[:2]} == {"spr-easy", "mcq-easy"}
-    assert {q["question_id"] for q in ordered[-2:]} == {"spr-hard", "mcq-hard"}
+    assert [q["question_id"] for q in ordered[:2]] == ["spr-easy", "mcq-easy"]
+    assert [q["question_id"] for q in ordered[-2:]] == ["spr-hard", "mcq-hard"]
 
 
 def test_a_full_module_lands_in_the_blueprint_bands():
@@ -27,7 +25,7 @@ def test_a_full_module_lands_in_the_blueprint_bands():
         + [make_question(f"m{i}", "MCQ", "Medium") for i in range(8)]
     )
 
-    ordered = build_module(questions, rng=random.Random(1))
+    ordered = build_module(questions)
 
     assert [q["id"] for q in ordered] == list(range(1, 23))
     assert all(q["difficulty"] == "Easy" for q in ordered[0:7])
@@ -35,13 +33,16 @@ def test_a_full_module_lands_in_the_blueprint_bands():
     assert all(q["difficulty"] == "Hard" for q in ordered[15:22])
 
 
-def test_the_order_inside_a_band_varies_between_attempts():
-    questions = [make_question(f"q{i}", "MCQ", "Easy") for i in range(8)]
-    orders = {
-        tuple(q["question_id"] for q in build_module(list(questions), rng=random.Random(seed)))
-        for seed in range(10)
-    }
-    assert len(orders) > 1
+def test_a_module_in_exam_order_is_served_as_stored():
+    """The paper in answer-keys/ and the exam must number the questions alike."""
+    questions = (
+        [make_question(f"e{i}", "MCQ", "Easy") for i in range(3)]
+        + [make_question(f"m{i}", "MCQ", "Medium") for i in range(3)]
+        + [make_question(f"h{i}", "MCQ", "Hard") for i in range(3)]
+    )
+    stored = [q["question_id"] for q in questions]
+
+    assert [q["question_id"] for q in build_module(questions)] == stored
 
 
 def test_renumbers_ids_from_one():

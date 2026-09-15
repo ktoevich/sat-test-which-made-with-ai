@@ -111,6 +111,24 @@ test('a full attempt, from sign-up to saved history', async (t) => {
     assert.equal(text('next-btn'), 'Finish');
   });
 
+  await t.test('the calculator opens in a floating panel and closes again', () => {
+    assert.ok(!isVisible('calculator-panel'));
+    click('calculator-btn');
+    assert.ok(isVisible('calculator-panel'));
+    assert.equal(byId('calculator-btn').getAttribute('aria-expanded'), 'true');
+    // jsdom fetches no scripts, so Desmos itself never arrives here.
+    assert.match(text('calculator-notice'), /loading/i);
+    assert.ok(
+      [...app.window.document.scripts].some((script) => script.src.includes('desmos.com/api')),
+      'the Desmos script is requested on first open, not on page load',
+    );
+
+    click('calculator-close');
+    assert.ok(!isVisible('calculator-panel'));
+    click('calculator-btn');
+    assert.ok(isVisible('calculator-panel'));
+  });
+
   await t.test('finishing module 1 well requests the harder module 2', async () => {
     click('next-btn');
     assert.ok(isVisible('finish-modal'));
@@ -122,6 +140,7 @@ test('a full attempt, from sign-up to saved history', async (t) => {
     await wait(COUNTDOWN_WAIT_MS);
     assert.equal(text('section-info'), 'Math: Module 2');
     assert.equal(text('tracker-btn'), '1 of 2');
+    assert.ok(!isVisible('calculator-panel'), 'a new module starts with the calculator closed');
   });
 
   await t.test('the results screen scores the attempt and saves it', async () => {

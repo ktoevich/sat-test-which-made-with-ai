@@ -1,7 +1,39 @@
 .question-figure {
-  margin: var(--space-5) 0;
+  margin: var(--space-3) 0 var(--space-4);
   text-align: center;
   overflow-x: auto;
+}
+
+/* Every figure — College Board's own SVGs, the coordinate grids and the
+   diagrams drawn by the bank — arrives with a pixel width and height (see
+   coordinate-grid.js), so the browser scales it like an image: never wider
+   than the panel, never taller than the cap, proportions kept. */
+.question-figure svg,
+.modal__figure svg {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: var(--figure-max-height);
+  margin: 0 auto;
+}
+
+/* Pictures inside a prompt or an answer choice. College Board's older items
+   draw a formula as a small inline image (role="math"), and a few offer four
+   graphs to choose between — 350-480px PNGs that would otherwise each fill
+   the panel. A formula stays inline at its own size; a graph is boxed like a
+   figure. */
+.question-text img,
+.option-item__text img {
+  max-width: 100%;
+  height: auto;
+  vertical-align: middle;
+}
+
+.option-item__text img:not([role="math"]) {
+  display: block;
+  max-height: var(--choice-figure-max-height);
+  margin: var(--space-1) 0;
 }
 
 .question-text {
@@ -222,28 +254,90 @@
   border-top: 5px solid var(--color-warning);
 }
 
+/* --- Graphing calculator --- */
+.calculator-panel {
+  position: fixed;
+  top: calc(var(--top-bar-height) + var(--space-5));
+  right: var(--content-gap);
+  display: flex;
+  flex-direction: column;
+  width: 560px;
+  height: 480px;
+  min-width: 340px;
+  min-height: 280px;
+  max-width: calc(100vw - 2 * var(--space-4));
+  max-height: calc(100vh - var(--top-bar-height) - var(--bottom-bar-height));
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+  /* The corner handle: Desmos follows the new size (see calculator.js). */
+  resize: both;
+  z-index: var(--z-map);
+}
+
+.calculator-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  background: var(--color-slate-900);
+  color: var(--color-slate-50);
+  font-weight: 700;
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+}
+
+.calculator-panel__header.is-dragging {
+  cursor: grabbing;
+}
+
+.calculator-panel__close {
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.calculator-panel__close:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.calculator-panel__notice {
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-slate-600);
+  font-size: 0.95rem;
+}
+
+.calculator-panel__host {
+  flex: 1;
+  min-height: 0;
+}
+
+@media (max-width: 900px) {
+  .calculator-panel {
+    right: var(--space-4);
+    width: calc(100vw - 2 * var(--space-4));
+  }
+}
+
 /* --- Coordinate grid figures --- */
 .coordinate-grid {
-  display: block;
-  width: 100%;
-  max-width: 350px;
-  max-height: 350px;
-  margin: 0 auto;
   background: var(--color-surface);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
-/* Standalone diagrams: triangles, bar charts, crossing lines. Unlike the
-   coordinate grid these carry their own labels, so they are only bounded, not
-   forced to a square. */
+/* Standalone diagrams: triangles, bar charts, crossing lines. */
 .question-diagram {
-  display: block;
-  width: 100%;
-  max-width: 340px;
-  max-height: 300px;
-  margin: 0 auto;
   background: var(--color-surface);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);

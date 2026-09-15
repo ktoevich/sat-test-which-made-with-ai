@@ -18,6 +18,22 @@ function resolveApiBaseUrl() {
 
 export const API_BASE_URL = resolveApiBaseUrl();
 
+/**
+ * The Desmos graphing calculator the exam offers, loaded from Desmos's API.
+ * The built-in key is the demo key Desmos publishes for development; a
+ * deployment should request its own free key at https://www.desmos.com/api
+ * and put it in the `sat:desmos-api-key` meta tag in index.html.
+ */
+const DESMOS_DEMO_API_KEY = 'dcb31709b452b1cf9dc26972add0dda6';
+
+function resolveDesmosApiKey() {
+  const configured = document.querySelector('meta[name="sat:desmos-api-key"]')?.content.trim();
+  return configured || DESMOS_DEMO_API_KEY;
+}
+
+export const DESMOS_SCRIPT_URL =
+  `https://www.desmos.com/api/v1.10/calculator.js?apiKey=${encodeURIComponent(resolveDesmosApiKey())}`;
+
 /** Time allowed per module, matching the digital SAT math section. */
 export const MODULE_DURATION_SECONDS = 35 * 60;
 

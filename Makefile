@@ -5,7 +5,7 @@ PIP := $(VENV)/bin/pip
 BUNDLES ?= 5
 BANK ?= backend/data/tests_bundle_cache.json
 
-.PHONY: help install run test test-backend test-frontend validate stats blueprint generate export clean
+.PHONY: help install run test test-backend test-frontend validate stats blueprint generate reorder export clean
 
 help:
 	@echo "make install       - create backend/.venv and install dependencies"
@@ -17,6 +17,7 @@ help:
 	@echo "make stats         - summarise the question bank"
 	@echo "make blueprint     - print the module structure the generator follows"
 	@echo "make generate      - build a bank of original questions (BUNDLES=$(BUNDLES))"
+	@echo "make reorder       - put every module of the bank in exam order (easy first)"
 	@echo "make export        - write answer-keys/ from the current bank"
 	@echo "make clean         - remove the virtualenv, node_modules and caches"
 
@@ -52,6 +53,9 @@ blueprint: install
 
 generate: install
 	cd backend && .venv/bin/python -m app.cli generate --bundles $(BUNDLES) --force
+
+reorder: install
+	cd backend && .venv/bin/python -m app.cli reorder
 
 export: install
 	cd backend && .venv/bin/python -m app.cli export

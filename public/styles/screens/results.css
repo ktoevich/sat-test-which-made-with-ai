@@ -152,6 +152,23 @@
   font-size: 1.1rem;
 }
 
+/* An answer that is a picture — a graph chosen from four, or a formula drawn
+   as an image — sits inline with its label, no taller than a line or two. */
+.answer-summary img,
+.attempt-question__text img,
+.modal__body img,
+.rationale__body img {
+  max-width: 100%;
+  height: auto;
+  vertical-align: middle;
+}
+
+.answer-summary img:not([role="math"]) {
+  display: block;
+  max-height: 160px;
+  margin-top: var(--space-2);
+}
+
 .answer-value--correct {
   color: var(--color-success);
   font-weight: 700;

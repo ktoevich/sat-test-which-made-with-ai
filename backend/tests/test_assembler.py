@@ -101,15 +101,40 @@ def test_pool_prefers_questions_on_topic():
     assert drawn[0]["skill"] == "Circles"
 
 
-def test_pool_prefers_on_topic_over_exact_difficulty():
+def test_pool_prefers_exact_difficulty_over_topic():
+    # The bands are exact in the reference tables, the subtopic counts are
+    # not: an Easy slot stays Easy even when the only Easy question left is
+    # about something else.
     questions = pool_of({("MCQ", "Easy"): 2}, skill="Percentages") + pool_of(
         {("MCQ", "Hard"): 1}, skill="Circles"
     )
     pool = QuestionPool(questions, random.Random(1))
 
     drawn = pool.draw(Slot(("Circles",), "MCQ", "Easy"))
-    assert drawn[0]["skill"] == "Circles"
-    assert drawn[0]["difficulty"] == "Hard"
+    assert drawn[0]["skill"] == "Percentages"
+    assert drawn[0]["difficulty"] == "Easy"
+
+
+def test_pool_prefers_the_same_domain_when_the_topic_is_gone():
+    # Circles and area both belong to Geometry and Trigonometry.
+    other_domain = pool_of({("MCQ", "Easy"): 2}, skill="Percentages")
+    for question in other_domain:
+        question["domain"] = "Problem-Solving and Data Analysis"
+    same_domain = pool_of({("MCQ", "Easy"): 1}, skill="Area and volume")
+    same_domain[0]["domain"] = "Geometry and Trigonometry"
+    pool = QuestionPool(other_domain + same_domain, random.Random(1))
+
+    drawn = pool.draw(Slot(("Circles",), "MCQ", "Easy"))
+    assert drawn[0]["skill"] == "Area and volume"
+
+
+def test_pool_keeps_the_type_before_the_topic():
+    on_topic_spr = pool_of({("SPR", "Easy"): 1}, skill="Circles")
+    off_topic_mcq = pool_of({("MCQ", "Easy"): 1}, skill="Percentages")
+    pool = QuestionPool(on_topic_spr + off_topic_mcq, random.Random(1))
+
+    drawn = pool.draw(Slot(("Circles",), "MCQ", "Easy"))
+    assert drawn[0]["type"] == "MCQ"
 
 
 def test_pool_falls_back_to_any_topic_as_a_last_resort():

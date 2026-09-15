@@ -11,6 +11,13 @@
   -->
   <meta name="sat:api-base" content="">
 
+  <!--
+    The exam's graphing calculator is Desmos, loaded from desmos.com when a
+    student first opens it. Empty means Desmos's demo key; a deployment should
+    request its own free key at https://www.desmos.com/api.
+  -->
+  <meta name="sat:desmos-api-key" content="">
+
   <link rel="stylesheet" href="./styles/main.css">
 
   <!-- KaTeX renders the LaTeX inside question text. -->
@@ -127,11 +134,35 @@
               </svg>
               Mark for Review
             </button>
+            <button type="button" class="tool-btn" id="calculator-btn" aria-controls="calculator-panel" aria-expanded="false">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="4" y="2" width="16" height="20" rx="2"></rect>
+                <line x1="8" y1="6" x2="16" y2="6"></line>
+                <line x1="8" y1="11" x2="8" y2="11"></line>
+                <line x1="12" y1="11" x2="12" y2="11"></line>
+                <line x1="16" y1="11" x2="16" y2="11"></line>
+                <line x1="8" y1="15" x2="8" y2="15"></line>
+                <line x1="12" y1="15" x2="12" y2="15"></line>
+                <line x1="16" y1="15" x2="16" y2="19"></line>
+                <line x1="8" y1="19" x2="12" y2="19"></line>
+              </svg>
+              Calculator
+            </button>
           </div>
           <ul class="no-copy" id="options-list"></ul>
         </section>
       </div>
     </main>
+
+    <!-- The graphing calculator: floats over the exam, dragged by its header. -->
+    <div id="calculator-panel" class="calculator-panel hidden" role="dialog" aria-label="Graphing calculator">
+      <div class="calculator-panel__header" id="calculator-handle">
+        <span class="calculator-panel__title">Calculator</span>
+        <button type="button" class="calculator-panel__close" id="calculator-close" aria-label="Close the calculator">&times;</button>
+      </div>
+      <p class="calculator-panel__notice hidden" id="calculator-notice"></p>
+      <div class="calculator-panel__host" id="calculator-host"></div>
+    </div>
 
     <footer class="bottom-bar hidden" id="exam-footer">
       <div class="bottom-bar__left"></div>

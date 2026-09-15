@@ -88,6 +88,11 @@
   background: var(--color-slate-100);
 }
 
+.tool-btn.is-active {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
 .tool-btn.is-flagged {
   color: var(--color-warning-dark);
 }

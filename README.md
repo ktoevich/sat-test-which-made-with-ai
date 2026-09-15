@@ -7,7 +7,8 @@ module 2 follows how the student did in module 1. Every module is 22 questions
 `SAT test structure/`.
 
 - **Backend** — Flask API that serves modules from a JSON question bank.
-- **Frontend** — dependency-free ES modules (no build step) plus KaTeX for formulas.
+- **Frontend** — dependency-free ES modules (no build step) plus KaTeX for formulas
+  and the Desmos graphing calculator the digital SAT provides.
 
 ## Requirements
 
@@ -47,6 +48,18 @@ elsewhere through the meta tag in `public/index.html`:
 
 Open the frontend over `http://`, not `file://` — browsers block ES module
 imports on the `file:` scheme.
+
+### The calculator
+
+The **Calculator** button in the exam opens the Desmos graphing calculator in a
+floating panel, as on the real test. It is loaded from desmos.com the first time
+a student opens it, with the demo key Desmos publishes for development. A
+deployment should [request its own free key](https://www.desmos.com/api) and put
+it in the meta tag in `public/index.html`:
+
+```html
+<meta name="sat:desmos-api-key" content="your-key">
+```
 
 ## Tests
 
@@ -88,7 +101,7 @@ backend/
       attempts.py        saved test history
       question_bank.py   serves bundles from the database, else from the file
       bank_store.py      the bank held in the database, one row per test
-      test_builder.py    orders and numbers a module's questions
+      test_builder.py    numbers a module's questions, in the order the bank stores them
     bank/
       taxonomy.py        the Digital SAT content domains and their skills
       blueprint.py       the module structure from SAT test structure/
@@ -97,9 +110,10 @@ backend/
       importer.py        normalises an export you already have
       generator.py       builds original questions from templates
       assembler.py       turns a pool of questions into bundles
+      ordering.py        the order questions run in inside a module: easy first
       templates/         the question templates, by domain
       latex.py           LaTeX formatting helpers
-    cli.py               validate / stats / blueprint / generate / import commands
+    cli.py               validate / stats / blueprint / generate / import / reorder commands
     cli_bank.py          the `bank` commands: keep the bank in the database
   data/
     tests_bundle_cache.json   the question bank (not committed; build it)
@@ -122,7 +136,7 @@ public/                  the frontend, served straight from the CDN
     features/
       auth/              sign-in and sign-up
       lobby/             dashboard and history
-      exam/              state, timer, navigator, question view, controller
+      exam/              state, timer, navigator, question view, calculator, controller
       results/           score screen, solution and attempt modals
     ui/                  screen switching, loading overlay, modals
 
@@ -196,6 +210,25 @@ Domain ranges per module (subtopics are in the file, or run `make blueprint`):
 | Advanced Math | 7–8 | 4–6 | 9–10 |
 | Problem-Solving and Data Analysis | 3–4 | 4–5 | 2–3 |
 | Geometry and Trigonometry | 3–4 | 3–4 | 3–4 |
+
+### The order inside a module
+
+Every module is stored the way the exam runs it: easy first, hard last, so the
+question numbers land in the bands above — in module 1, questions 1–7 are Easy,
+8–15 Medium and 16–22 Hard. Grid-ins sit wherever their difficulty puts them,
+as on the real test, and inside a band the questions keep the mixed-topic order
+they were drawn in. The API serves a module as stored, so question 5 of a paper
+in `answer-keys/` is question 5 on screen.
+
+A bank built before this ordering existed is put right in place:
+
+```bash
+make reorder            # python -m app.cli reorder --bank data/tests_bundle_cache.json
+make export             # then rewrite answer-keys/ so the papers match
+```
+
+After that, push the bank again (`app.cli bank push`) so the deployment serves
+the reordered modules.
 
 Building a module means *planning* it first: pick an exact count for every
 subtopic inside its range, pair each of those slots with a type and a difficulty
@@ -273,6 +306,13 @@ styles.
 **14 is the most tests the pool sustains.** The blueprint wants 7–10 Advanced
 Math questions per module and the bank is thinner there than the tables assume,
 so a 15th test starts drifting outside the domain ranges.
+
+When a subtopic runs dry at the difficulty a slot asks for, the assembler keeps
+the difficulty and the question type and relaxes the topic instead — first to
+another skill of the same domain, then to any — because the difficulty bands
+and the grid-in count are exact in `SAT test structure/` while the subtopic
+counts are approximate. Only a pool with nothing left at that difficulty at all
+makes it borrow from the neighbouring one.
 
 ### Import questions you already have
 

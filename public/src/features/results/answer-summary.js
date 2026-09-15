@@ -1,7 +1,7 @@
 /** Shared formatting of "your answer / correct answer" blocks. */
 
-import { el } from '../../core/dom.js';
-import { AnswerStatus, optionTextFor, statusOf } from '../../core/questions.js';
+import { el, escapeHtml } from '../../core/dom.js';
+import { AnswerStatus, QuestionType, optionTextFor, statusOf } from '../../core/questions.js';
 
 const STATUS_LABEL = {
   [AnswerStatus.CORRECT]: 'Correct',
@@ -23,17 +23,30 @@ const ANSWER_VALUE_CLASS = {
 
 export const OMITTED_TEXT = 'Omitted (No answer)';
 
+/**
+ * An answer as markup safe to insert. A multiple-choice option comes from the
+ * bank and may itself be markup — a formula image, or one of four graphs to
+ * choose between — so it is kept as is; a grid-in answer is what the student
+ * typed and is escaped.
+ */
+function answerHtml(question, answer) {
+  const text = optionTextFor(question, answer);
+  return question.type === QuestionType.MULTIPLE_CHOICE ? text : escapeHtml(text);
+}
+
 /** @param {{question: object, userAnswer: string|null}} entry */
 export function describeAnswers(entry) {
   const status = statusOf(entry.question, entry.userAnswer);
+  const omitted = status === AnswerStatus.OMITTED;
   return {
     status,
     statusLabel: STATUS_LABEL[status],
     statusClass: STATUS_CLASS[status],
     valueClass: ANSWER_VALUE_CLASS[status],
-    userText:
-      status === AnswerStatus.OMITTED ? OMITTED_TEXT : optionTextFor(entry.question, entry.userAnswer),
+    userText: omitted ? OMITTED_TEXT : optionTextFor(entry.question, entry.userAnswer),
     correctText: optionTextFor(entry.question, entry.question.answer),
+    userHtml: omitted ? escapeHtml(OMITTED_TEXT) : answerHtml(entry.question, entry.userAnswer),
+    correctHtml: answerHtml(entry.question, entry.question.answer),
   };
 }
 
