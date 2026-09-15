@@ -294,6 +294,13 @@ styles.
 Math questions per module and the bank is thinner there than the tables assume,
 so a 15th test starts drifting outside the domain ranges.
 
+When a subtopic runs dry at the difficulty a slot asks for, the assembler keeps
+the difficulty and the question type and relaxes the topic instead — first to
+another skill of the same domain, then to any — because the difficulty bands
+and the grid-in count are exact in `SAT test structure/` while the subtopic
+counts are approximate. Only a pool with nothing left at that difficulty at all
+makes it borrow from the neighbouring one.
+
 ### Import questions you already have
 
 `app.cli import` reads a `.json` or `.csv` file **from your own disk** and maps

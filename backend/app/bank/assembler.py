@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from . import blueprint as bp
+from . import taxonomy
 from .ordering import exam_order
 
 Question = dict[str, Any]
@@ -29,7 +30,9 @@ Supports = Callable[[tuple[str, ...], str, str], bool]
 DEFAULT_MODULE_SIZE = bp.QUESTIONS_PER_MODULE
 DEFAULT_SPR_COUNT = bp.STUDENT_RESPONSE_PER_MODULE
 
-#: When a difficulty runs dry, borrow from the closest one instead of failing.
+#: When a difficulty runs dry everywhere, borrow from the closest one instead
+#: of failing. Topic gives way first: the difficulty bands and the grid-in
+#: count are exact in ``SAT test structure/``, the subtopic counts are "~".
 DIFFICULTY_FALLBACK = {
     "Easy": ("Medium", "Hard"),
     "Medium": ("Easy", "Hard"),
@@ -60,10 +63,26 @@ class Slot:
     def any(cls, qtype: str, difficulty: str) -> "Slot":
         return cls((), qtype, difficulty)
 
+    @property
+    def domain(self) -> str | None:
+        """The content domain the slot's skills belong to; None means any."""
+        for skill in self.skills:
+            domain = taxonomy.domain_of(skill)
+            if domain is not None:
+                return domain.name
+        return None
+
     def accepts(self, question: Mapping[str, Any]) -> bool:
         """Whether the question is on topic. Unlabelled questions fit anywhere."""
         skill = question.get("skill")
         return not self.skills or skill is None or skill in self.skills
+
+    def in_domain(self, question: Mapping[str, Any]) -> bool:
+        """Whether the question is at least from the same content domain."""
+        domain = self.domain
+        if domain is None or question.get("domain") is None:
+            return True
+        return question.get("domain") == domain
 
 
 def fallbacks(qtype: str, difficulty: str) -> list[tuple[str, str]]:
@@ -227,17 +246,20 @@ class QuestionPool:
     def draw(self, slot: Slot, count: int = 1) -> list[Question]:
         """Take ``count`` questions for ``slot``.
 
-        On-topic questions of the exact type and difficulty come first; then
-        on-topic questions from neighbouring difficulties and the other type;
-        then anything at all, so a thin or unlabelled pool still fills up.
+        Questions of the exact type and difficulty come first — on topic, then
+        from the same content domain, then any topic — so a module keeps its
+        difficulty bands and its grid-in count for as long as the pool has
+        anything at that difficulty at all. Only when it has not do the
+        neighbouring difficulties and the other type come in, in the same
+        order, so a thin or unlabelled pool still fills up.
         """
         taken: list[Question] = []
-        for on_topic in (True, False):
-            for key in fallbacks(slot.qtype, slot.difficulty):
+        for key in fallbacks(slot.qtype, slot.difficulty):
+            for matches in (slot.accepts, slot.in_domain, None):
                 bucket = self._buckets[key]
                 index = 0
                 while index < len(bucket) and len(taken) < count:
-                    if not on_topic or slot.accepts(bucket[index]):
+                    if matches is None or matches(bucket[index]):
                         taken.append(bucket.pop(index))
                     else:
                         index += 1
