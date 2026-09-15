@@ -25,6 +25,10 @@
    figure. */
 .question-text img,
 .option-item__text img {
+  /* The bank sizes a picture with width/height attributes — a graph offered
+     as a choice at 82px — so both are reset and the picture scales to its
+     box instead. */
+  width: auto;
   max-width: 100%;
   height: auto;
   vertical-align: middle;
@@ -103,6 +107,10 @@
 }
 
 .option-item__text {
+  /* Fill the row: an image inside sizes itself against this box, and a
+     shrink-to-fit box would let a graph offered as a choice collapse. */
+  flex: 1;
+  min-width: 0;
   color: var(--color-text);
   font-size: 1.1rem;
 }
