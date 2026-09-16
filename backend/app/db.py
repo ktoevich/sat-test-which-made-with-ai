@@ -53,7 +53,12 @@ def schema_statements(dialect: str) -> list[str]:
             password_hash TEXT    NOT NULL,
             created_at    TEXT    NOT NULL,
             last_login_at TEXT,
-            is_disabled   INTEGER NOT NULL DEFAULT 0
+            is_disabled   INTEGER NOT NULL DEFAULT 0,
+            avatar        TEXT    NOT NULL DEFAULT '',
+            full_name     TEXT    NOT NULL DEFAULT '',
+            location      TEXT    NOT NULL DEFAULT '',
+            rating        INTEGER NOT NULL DEFAULT 1200,
+            max_rating    INTEGER NOT NULL DEFAULT 1200
         )
         """,
         """
@@ -67,17 +72,45 @@ def schema_statements(dialect: str) -> list[str]:
         "CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)",
         f"""
         CREATE TABLE IF NOT EXISTS attempts (
-            id       {_serial(dialect)},
-            user_id  BIGINT  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            taken_at TEXT    NOT NULL,
-            section  TEXT    NOT NULL DEFAULT 'math',
-            score    INTEGER NOT NULL,
-            correct  INTEGER NOT NULL,
-            total    INTEGER NOT NULL,
-            details  TEXT    NOT NULL
+            id            {_serial(dialect)},
+            user_id       BIGINT  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            taken_at      TEXT    NOT NULL,
+            section       TEXT    NOT NULL DEFAULT 'math',
+            score         INTEGER NOT NULL,
+            correct       INTEGER NOT NULL,
+            total         INTEGER NOT NULL,
+            details       TEXT    NOT NULL,
+            test_id       TEXT    NOT NULL DEFAULT '',
+            target        TEXT    NOT NULL DEFAULT '',
+            time_spent    INTEGER NOT NULL DEFAULT 0,
+            rating_before INTEGER,
+            rating_after  INTEGER
         )
         """,
         "CREATE INDEX IF NOT EXISTS idx_attempts_user ON attempts(user_id, taken_at DESC)",
+        f"""
+        CREATE TABLE IF NOT EXISTS friendships (
+            id           {_serial(dialect)},
+            requester_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            addressee_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            status       TEXT   NOT NULL DEFAULT 'pending',
+            created_at   TEXT   NOT NULL,
+            UNIQUE (requester_id, addressee_id)
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_friendships_addressee ON friendships(addressee_id, status)",
+        f"""
+        CREATE TABLE IF NOT EXISTS messages (
+            id           {_serial(dialect)},
+            sender_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            recipient_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            body         TEXT   NOT NULL,
+            sent_at      TEXT   NOT NULL,
+            read_at      TEXT
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_messages_recipient ON messages(recipient_id, sender_id, id)",
+        "CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id, recipient_id, id)",
         """
         CREATE TABLE IF NOT EXISTS question_bundles (
             test_id    TEXT    PRIMARY KEY,
@@ -94,17 +127,30 @@ def schema_statements(dialect: str) -> list[str]:
 def migration_statements(dialect: str) -> list[str]:
     """Columns added after the tables first shipped.
 
-    Both ``section`` columns arrived with the Reading and Writing section; a
-    database created before then has the tables without them. Every row from
-    that time is a math one, which is what the default says. SQLite has no
-    ``ADD COLUMN IF NOT EXISTS``, so there the statement is expected to fail
-    once the column exists and :meth:`Database.init_schema` lets it.
+    The ``section`` columns arrived with the Reading and Writing section, the
+    profile and rating columns with the community features; a database created
+    before then has the tables without them, and the defaults say what every
+    row from that time meant. SQLite has no ``ADD COLUMN IF NOT EXISTS``, so
+    there the statement is expected to fail once the column exists and
+    :meth:`Database.init_schema` lets it.
     """
     if_absent = "IF NOT EXISTS " if dialect == POSTGRES else ""
-    return [
-        f"ALTER TABLE attempts ADD COLUMN {if_absent}section TEXT NOT NULL DEFAULT 'math'",
-        f"ALTER TABLE question_bundles ADD COLUMN {if_absent}section TEXT NOT NULL DEFAULT 'math'",
+    columns = [
+        ("attempts", "section TEXT NOT NULL DEFAULT 'math'"),
+        ("question_bundles", "section TEXT NOT NULL DEFAULT 'math'"),
+        # The profile and the rating came with the community features.
+        ("users", "avatar TEXT NOT NULL DEFAULT ''"),
+        ("users", "full_name TEXT NOT NULL DEFAULT ''"),
+        ("users", "location TEXT NOT NULL DEFAULT ''"),
+        ("users", "rating INTEGER NOT NULL DEFAULT 1200"),
+        ("users", "max_rating INTEGER NOT NULL DEFAULT 1200"),
+        ("attempts", "test_id TEXT NOT NULL DEFAULT ''"),
+        ("attempts", "target TEXT NOT NULL DEFAULT ''"),
+        ("attempts", "time_spent INTEGER NOT NULL DEFAULT 0"),
+        ("attempts", "rating_before INTEGER"),
+        ("attempts", "rating_after INTEGER"),
     ]
+    return [f"ALTER TABLE {table} ADD COLUMN {if_absent}{column}" for table, column in columns]
 
 
 class Database:

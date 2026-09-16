@@ -27,9 +27,10 @@ def health():
 
 @bp.get("/tests/module-1")
 def module_1():
-    """Start an attempt: pick a random bundle of the section and return its first module.
+    """Start an attempt: pick a bundle of the section and return its first module.
 
-    ``section`` is ``math`` (the default) or ``reading``.
+    ``section`` is ``math`` (the default) or ``reading``; ``test_id`` asks for
+    one test in particular, to retake it.
     """
     bank = _bank()
     section = request.args.get("section", DEFAULT_SECTION)
@@ -42,7 +43,16 @@ def module_1():
             503, "bank_empty", "No generated tests are available yet. Please try again later."
         )
 
-    bundle = bank.random_bundle(section=section)
+    # A retake names the test it wants; otherwise any test of the section.
+    test_id = request.args.get("test_id")
+    if test_id:
+        bundle = bank.get_bundle(test_id)
+        if bundle is None or bundle_section(bundle) != section:
+            return error_response(
+                404, "test_not_found", f"Test {test_id!r} is no longer available. Please start a new attempt."
+            )
+    else:
+        bundle = bank.random_bundle(section=section)
     questions = build_module(bank.module_1(bundle), section)
     return jsonify(
         {"test_id": bundle["test_id"], "section": section, "module": 1, "questions": questions}

@@ -44,6 +44,11 @@ def create_attempt():
     if section not in SECTION_KEYS:
         return error_response(422, "validation_failed", f"section must be one of {SECTION_KEYS}.")
 
+    try:
+        time_spent = int(payload.get("time_spent") or 0)
+    except (TypeError, ValueError):
+        return error_response(422, "validation_failed", "time_spent must be a number of seconds.")
+
     details = payload.get("details")
     attempt = attempts_service.record(
         get_db(),
@@ -53,5 +58,8 @@ def create_attempt():
         total=total,
         details=details if isinstance(details, list) else [],
         section=section,
+        test_id=str(payload.get("test_id") or ""),
+        target=str(payload.get("target") or ""),
+        time_spent=time_spent,
     )
     return jsonify({"attempt": attempt}), 201

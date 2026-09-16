@@ -86,6 +86,16 @@ def me():
     return jsonify({"user": g.current_user.to_dict()})
 
 
+@bp.patch("/profile")
+@login_required
+def update_profile():
+    """Change the handle, avatar, name or location. Fields left out are kept."""
+    payload = request.get_json(silent=True) or {}
+    fields = {key: payload[key] for key in ("username", "avatar", "full_name", "location") if key in payload}
+    user = accounts.update_profile(get_db(), g.current_user.id, **fields)
+    return jsonify({"user": user.to_dict()})
+
+
 @bp.errorhandler(accounts.AccountError)
 def handle_account_error(exc: accounts.AccountError):
     return error_response(STATUS_FOR_CODE.get(exc.code, 400), exc.code, str(exc))
