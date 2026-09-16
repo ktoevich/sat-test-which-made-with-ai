@@ -234,10 +234,16 @@ def update_profile(
 
 
 def record_rating(db: Database, user_id: int, rating: int) -> None:
-    """Store a new rating, raising the peak when it is one."""
+    """Store a new rating, raising the peak when it is one.
+
+    The peak is compared here rather than in SQL: SQLite spells a two-value
+    maximum ``MAX(a, b)`` and PostgreSQL ``GREATEST(a, b)``.
+    """
+    row = db.fetch_one("SELECT max_rating FROM users WHERE id = ?", (user_id,))
+    peak = max(int(row["max_rating"] or 0) if row else 0, int(rating))
     db.execute(
-        "UPDATE users SET rating = ?, max_rating = MAX(max_rating, ?) WHERE id = ?",
-        (int(rating), int(rating), user_id),
+        "UPDATE users SET rating = ?, max_rating = ? WHERE id = ?",
+        (int(rating), peak, user_id),
     )
 
 

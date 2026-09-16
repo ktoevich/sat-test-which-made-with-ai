@@ -207,7 +207,9 @@ def leaderboard(db: Database, *, section: str | None = None, limit: int = 20) ->
     limit = max(1, min(MAX_LEADERBOARD, int(limit)))
     rows = db.fetch_all(
         """
-        SELECT u.*, best.score AS best_score, best.time_spent AS best_time,
+        SELECT u.id, u.email, u.username, u.created_at, u.last_login_at, u.is_disabled,
+               u.avatar, u.full_name, u.location, u.rating, u.max_rating,
+               best.score AS best_score, best.time_spent AS best_time,
                best.taken_at AS best_at, best.correct AS best_correct, best.total AS best_total,
                best.target AS best_target
         FROM (
