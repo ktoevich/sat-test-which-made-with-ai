@@ -2,6 +2,7 @@
 
 import { sectionOf } from '../../config.js';
 import { byId, clear, el, escapeHtml, setHtml } from '../../core/dom.js';
+import { t } from '../../core/i18n.js';
 import { renderMath } from '../../core/katex.js';
 import { AnswerStatus, cleanText, hasPassage } from '../../core/questions.js';
 import { openModal } from '../../ui/modal.js';
@@ -43,7 +44,7 @@ export function openAttempt(attempt) {
     entries.forEach((entry) => {
       if (printedModule !== entry.module) {
         printedModule = entry.module;
-        list.append(el('div', { className: 'module-separator', text: `Module ${entry.module}` }));
+        list.append(el('div', { className: 'module-separator', text: t('module_label', { n: entry.module }) }));
       }
       list.append(questionCard(entry));
     });

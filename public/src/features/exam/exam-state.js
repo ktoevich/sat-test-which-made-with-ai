@@ -57,6 +57,11 @@ export class ExamSession {
     this.testId = null;
     /** @type {string} the section key: `math` or `reading` */
     this.section = 'math';
+    /** @type {string} the module 2 route, once chosen: HIGHER or LOWER */
+    this.target = '';
+    /** Seconds spent in finished modules, plus when the running one started. */
+    this.timeSpent = 0;
+    this.moduleStartedAt = null;
     this.module = null;
     /** @type {{module: number, number: number, question: object, userAnswer: string|null}[]} */
     this.review = [];
@@ -68,6 +73,9 @@ export class ExamSession {
   start(testId, questions, section = 'math') {
     this.testId = testId;
     this.section = section;
+    this.target = '';
+    this.timeSpent = 0;
+    this.moduleStartedAt = null;
     this.review = [];
     this.moduleScores = {};
     this.module = new ModuleState(1, questions);
@@ -75,15 +83,25 @@ export class ExamSession {
   }
 
   /** Continue the same attempt with module 2. */
-  advanceTo(moduleNumber, questions) {
+  advanceTo(moduleNumber, questions, target = '') {
+    if (target) this.target = target;
     this.module = new ModuleState(moduleNumber, questions);
     return this.module;
   }
 
+  /** The clock starts when the questions appear, not while the countdown runs. */
+  startClock(now = Date.now()) {
+    this.moduleStartedAt = now;
+  }
+
   /** Score the current module and append its questions to the review list. */
-  finishModule() {
+  finishModule(now = Date.now()) {
     const { number, questions, answers } = this.module;
     const correct = countCorrect(questions, answers);
+    if (this.moduleStartedAt) {
+      this.timeSpent += Math.max(0, Math.round((now - this.moduleStartedAt) / 1000));
+      this.moduleStartedAt = null;
+    }
 
     this.moduleScores[number] = { correct, total: questions.length };
     questions.forEach((question, index) => {
@@ -96,6 +114,49 @@ export class ExamSession {
     });
 
     return this.moduleScores[number];
+  }
+
+  /** Everything needed to finish this attempt on another page load. */
+  snapshot() {
+    const module = this.module;
+    return {
+      testId: this.testId,
+      section: this.section,
+      target: this.target,
+      timeSpent: this.timeSpent,
+      moduleStartedAt: this.moduleStartedAt,
+      review: this.review,
+      moduleScores: this.moduleScores,
+      module: module && {
+        number: module.number,
+        questions: module.questions,
+        answers: module.answers,
+        flags: module.flags,
+        eliminated: module.eliminated,
+        currentIndex: module.currentIndex,
+      },
+    };
+  }
+
+  /** Rebuild a session from a snapshot; the running module keeps its answers. */
+  static fromSnapshot(snapshot) {
+    const session = new ExamSession();
+    session.testId = snapshot.testId;
+    session.section = snapshot.section ?? 'math';
+    session.target = snapshot.target ?? '';
+    session.timeSpent = snapshot.timeSpent ?? 0;
+    session.moduleStartedAt = snapshot.moduleStartedAt ?? null;
+    session.review = snapshot.review ?? [];
+    session.moduleScores = snapshot.moduleScores ?? {};
+    if (snapshot.module) {
+      const module = new ModuleState(snapshot.module.number, snapshot.module.questions);
+      module.answers = snapshot.module.answers ?? module.answers;
+      module.flags = snapshot.module.flags ?? module.flags;
+      module.eliminated = snapshot.module.eliminated ?? module.eliminated;
+      module.currentIndex = snapshot.module.currentIndex ?? 0;
+      session.module = module;
+    }
+    return session;
   }
 
   get totals() {

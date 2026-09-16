@@ -190,7 +190,7 @@ test('a full attempt, from sign-up to saved history', async (t) => {
     click(byId('history-table-body').querySelector('.btn-view'));
     assert.ok(isVisible('attempt-modal'));
     assert.equal(all('.attempt-question', byId('attempt-questions')).length, 5);
-    assert.match(text('attempt-questions'), /Omitted \(No answer\)/);
+    assert.match(text('attempt-questions'), /Omitted/);
     assert.match(text('attempt-summary'), /4 \/ 5 correct/);
     click(byId('attempt-modal').querySelector('[data-close-modal]'));
   });

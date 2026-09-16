@@ -1,6 +1,7 @@
 /** The "N of M" navigator popup listing every question in the module. */
 
 import { byId, clear, el, hide, setText } from '../../core/dom.js';
+import { t } from '../../core/i18n.js';
 import { isAnswered } from '../../core/questions.js';
 
 export class QuestionMap {
@@ -44,7 +45,7 @@ export class QuestionMap {
 
   /** @param {import('./exam-state.js').ExamSession['module']} module */
   update(module) {
-    setText(this.elements.trigger, `${module.currentIndex + 1} of ${module.size}`);
+    setText(this.elements.trigger, t('exam_of', { n: module.currentIndex + 1, total: module.size }));
 
     [...this.elements.grid.children].forEach((button, index) => {
       button.className = 'map-btn';

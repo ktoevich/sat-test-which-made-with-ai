@@ -9,10 +9,11 @@ import { apiGet } from './client.js';
 
 /**
  * @param {string} section `math` or `reading`
+ * @param {{ testId?: string }} [options] a specific test to retake
  * @returns {Promise<ModulePayload>}
  */
-export function fetchModule1(section = DEFAULT_SECTION) {
-  return apiGet('/tests/module-1', { section });
+export function fetchModule1(section = DEFAULT_SECTION, { testId } = {}) {
+  return apiGet('/tests/module-1', { section, test_id: testId || undefined });
 }
 
 /**

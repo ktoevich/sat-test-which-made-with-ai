@@ -18,6 +18,18 @@
   -->
   <meta name="sat:desmos-api-key" content="">
 
+  <!-- The remembered theme, before the first paint, so a dark page never flashes white. -->
+  <script>
+    (function () {
+      try {
+        var theme = localStorage.getItem('sat_theme');
+        if (theme === 'dark') document.documentElement.dataset.theme = 'dark';
+        var lang = localStorage.getItem('sat_lang');
+        if (lang === 'ru' || lang === 'en') document.documentElement.lang = lang;
+      } catch (error) { /* storage off: defaults apply */ }
+    })();
+  </script>
+
   <link rel="stylesheet" href="./styles/main.css">
 
   <!-- KaTeX renders the LaTeX inside question text. -->
@@ -32,8 +44,8 @@
   <div id="auth-screen" class="auth-overlay hidden">
     <div class="auth-card">
       <div class="auth-tabs" role="tablist">
-        <button class="auth-tab is-active" id="auth-tab-login" data-auth-mode="login" role="tab">Log In</button>
-        <button class="auth-tab" id="auth-tab-register" data-auth-mode="register" role="tab">Sign Up</button>
+        <button class="auth-tab is-active" id="auth-tab-login" data-auth-mode="login" role="tab" data-i18n="auth_login">Log In</button>
+        <button class="auth-tab" id="auth-tab-register" data-auth-mode="register" role="tab" data-i18n="auth_register">Sign Up</button>
       </div>
 
       <form class="auth-body" id="auth-form" novalidate>
@@ -42,13 +54,23 @@
 
         <div class="auth-form">
           <div id="auth-username-field" class="hidden">
-            <input type="text" id="auth-username" class="field" placeholder="Username" autocomplete="username">
+            <input type="text" id="auth-username" class="field" placeholder="Username" autocomplete="username" data-i18n-placeholder="auth_username">
           </div>
-          <input type="email" id="auth-email" class="field" placeholder="Email" autocomplete="email">
-          <input type="password" id="auth-password" class="field" placeholder="Password" autocomplete="current-password">
+          <input type="email" id="auth-email" class="field" placeholder="Email" autocomplete="email" data-i18n-placeholder="auth_email">
+          <input type="password" id="auth-password" class="field" placeholder="Password" autocomplete="current-password" data-i18n-placeholder="auth_password">
           <div id="auth-confirm-field" class="hidden">
-            <input type="password" id="auth-confirm" class="field" placeholder="Confirm password" autocomplete="new-password">
+            <input type="password" id="auth-confirm" class="field" placeholder="Confirm password" autocomplete="new-password" data-i18n-placeholder="auth_confirm">
           </div>
+        </div>
+        <div class="auth-switches">
+          <span class="lang-switch" role="group">
+            <button type="button" class="lang-switch__btn" data-lang="en">EN</button>
+            <button type="button" class="lang-switch__btn" data-lang="ru">RU</button>
+          </span>
+          <button type="button" class="icon-btn" data-theme-toggle data-i18n-title="nav_theme" aria-label="Theme">
+            <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+            <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+          </button>
         </div>
 
         <p class="auth-error" id="auth-error" role="alert"></p>
@@ -58,6 +80,35 @@
   </div>
 
   <div class="app-container">
+    <!-- ===================== Site header (lobby) ===================== -->
+    <header class="site-header hidden" id="site-header">
+      <button type="button" class="brand" id="brand-home">
+        <span class="brand__logo" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
+        </span>
+        <span class="brand__text" data-i18n="brand">Digital SAT practice</span>
+      </button>
+      <div class="site-header__actions">
+        <span class="lang-switch" role="group">
+          <button type="button" class="lang-switch__btn" data-lang="en">EN</button>
+          <button type="button" class="lang-switch__btn" data-lang="ru">RU</button>
+        </span>
+        <button type="button" class="icon-btn" data-theme-toggle data-i18n-title="nav_theme" aria-label="Theme">
+          <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+          <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+        <button type="button" class="icon-btn icon-btn--badge" id="messages-btn" data-i18n-title="nav_messages" aria-label="Messages">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+          <span class="icon-btn__badge hidden" id="messages-unread">0</span>
+        </button>
+        <button type="button" class="profile-chip" id="profile-btn" data-i18n-title="nav_profile">
+          <span class="profile-chip__avatar" id="header-avatar">🎓</span>
+          <span class="profile-chip__name" id="header-username">Student</span>
+        </button>
+        <button type="button" class="btn-secondary btn-secondary--danger btn--small" id="logout-btn" data-i18n="nav_logout">Logout</button>
+      </div>
+    </header>
+
     <!-- ===================== Exam chrome ===================== -->
     <header class="top-bar hidden" id="top-bar">
       <div class="top-bar__title hidden" id="section-info">Math: Module 1</div>
@@ -75,51 +126,149 @@
 
     <!-- ===================== Lobby ===================== -->
     <div id="lobby-screen" class="lobby-screen hidden">
-      <div class="dashboard">
-        <div id="lobby-notice-slot"></div>
+      <div class="lobby">
+        <div class="lobby__main">
+          <div id="lobby-notice-slot"></div>
 
-        <div class="card dashboard__header">
-          <div>
-            <h2 class="dashboard__title">Digital SAT mock-test</h2>
-            <p class="dashboard__subtitle">
-              Welcome back, <span class="dashboard__username" id="lobby-username">Student</span>! Ready to practice?
-            </p>
-          </div>
-          <div class="dashboard__actions">
-            <button type="button" class="btn-secondary btn-secondary--danger" id="logout-btn">Logout</button>
-            <button type="button" class="btn-primary btn-primary--large" id="start-reading-btn" data-section="reading">+ Reading &amp; Writing</button>
-            <button type="button" class="btn-primary btn-primary--large" id="start-test-btn" data-section="math">+ Math</button>
-          </div>
+          <!-- The profile: yours, or another student's in observer mode. -->
+          <section class="card profile-card" id="profile-card">
+            <div class="observer-banner hidden" id="observer-banner">
+              <span><span data-i18n="observer_viewing">Viewing the profile of</span> <strong id="observer-name"></strong></span>
+              <button type="button" class="btn-secondary btn--small" id="observer-exit" data-i18n="observer_back">Back to my profile</button>
+            </div>
+            <div class="profile-card__header">
+              <div class="profile-card__identity">
+                <div class="profile-avatar" id="profile-avatar" aria-hidden="true">🎓</div>
+                <div>
+                  <div class="profile-handle-row">
+                    <h1 class="profile-handle" id="profile-handle"><span id="lobby-username">Student</span></h1>
+                    <span class="tier-badge" id="profile-tier">Pupil</span>
+                  </div>
+                  <div class="profile-meta">
+                    <span id="profile-fullname" class="hidden"></span>
+                    <span id="profile-location" class="profile-meta__pill"></span>
+                    <span id="profile-since" class="profile-meta__pill"></span>
+                  </div>
+                </div>
+              </div>
+              <div class="profile-card__actions" id="profile-actions">
+                <button type="button" class="btn-secondary btn--small" id="open-friends-btn" data-i18n="profile_friends">Friends</button>
+                <button type="button" class="btn-secondary btn--small" id="open-messages-btn" data-i18n="profile_messages">Messages</button>
+                <button type="button" class="btn-primary btn--small" id="open-settings-btn" data-i18n="profile_settings">Settings</button>
+              </div>
+              <div class="profile-card__actions hidden" id="observer-actions">
+                <button type="button" class="btn-primary btn--small" id="observer-friend-btn"></button>
+                <button type="button" class="btn-secondary btn--small" id="observer-message-btn" data-i18n="profile_message">Message</button>
+              </div>
+            </div>
+
+            <div class="stat-grid">
+              <div class="stat-box"><div class="stat-box__value" id="profile-rating">1200</div><div class="stat-box__label" data-i18n="stat_rating">Rating</div></div>
+              <div class="stat-box"><div class="stat-box__value" id="profile-max-rating">1200</div><div class="stat-box__label" data-i18n="stat_max_rating">Peak rating</div></div>
+              <div class="stat-box stat-box--link" id="profile-friends-box"><div class="stat-box__value" id="profile-friends">0</div><div class="stat-box__label" data-i18n="stat_friends">Friends</div></div>
+              <div class="stat-box"><div class="stat-box__value" id="stat-tests">0</div><div class="stat-box__label" data-i18n="stat_tests">Tests taken</div></div>
+              <div class="stat-box"><div class="stat-box__value" id="stat-best">-</div><div class="stat-box__label" data-i18n="stat_best_math">Best Math</div></div>
+              <div class="stat-box"><div class="stat-box__value" id="stat-best-reading">-</div><div class="stat-box__label" data-i18n="stat_best_reading">Best Reading &amp; Writing</div></div>
+              <div class="stat-box"><div class="stat-box__value" id="stat-average">-</div><div class="stat-box__label" data-i18n="stat_average">Average score</div></div>
+            </div>
+
+            <div class="chart-block">
+              <div class="chart-block__header">
+                <h3 class="chart-block__title" data-i18n="chart_rating_title">Rating over time</h3>
+                <div class="chart-summary" id="rating-summary"></div>
+              </div>
+              <div class="rating-chart" id="rating-chart"></div>
+              <div class="chart-tooltip hidden" id="rating-tooltip" role="tooltip"></div>
+            </div>
+
+            <div class="chart-block">
+              <div class="chart-block__header">
+                <h3 class="chart-block__title" data-i18n="chart_topics_title">Questions right by domain</h3>
+                <div class="segmented" id="topics-mode" role="group">
+                  <button type="button" class="segmented__btn is-active" data-mode="circle" data-i18n="chart_mode_circle">Circle</button>
+                  <button type="button" class="segmented__btn" data-mode="bars" data-i18n="chart_mode_bars">Bars</button>
+                </div>
+              </div>
+              <div class="topics-chart" id="topics-chart"></div>
+            </div>
+          </section>
+
+          <!-- The tests -->
+          <section class="card tests-card" id="tests-card">
+            <h2 class="tests-card__title" data-i18n="tests_title">Practice tests</h2>
+            <p class="tests-card__subtitle" data-i18n="tests_subtitle">Two adaptive modules, timed as on the real test.</p>
+            <div class="test-cards">
+              <article class="test-card">
+                <div class="test-card__badges">
+                  <span class="test-badge test-badge--official">College Board</span>
+                  <span class="test-badge test-badge--adaptive" data-i18n="test_badge_adaptive">Adaptive</span>
+                  <span class="test-badge" data-i18n="test_badge_math_time">70 min • 44 questions</span>
+                </div>
+                <h3 class="test-card__title" data-i18n="test_math_title">Math</h3>
+                <p class="test-card__text" data-i18n="test_math_desc">2 modules × 22 questions, 35 minutes each.</p>
+                <div class="test-card__topics"><span class="test-card__hint" data-i18n="test_practice_hint">Practise a domain:</span><span class="topic-chips" data-section="math"></span></div>
+                <button type="button" class="btn-primary btn-primary--large test-card__start" id="start-test-btn" data-section="math" data-i18n="test_start_math">Start Math</button>
+              </article>
+              <article class="test-card">
+                <div class="test-card__badges">
+                  <span class="test-badge test-badge--official">College Board</span>
+                  <span class="test-badge test-badge--adaptive" data-i18n="test_badge_adaptive">Adaptive</span>
+                  <span class="test-badge" data-i18n="test_badge_reading_time">64 min • 54 questions</span>
+                </div>
+                <h3 class="test-card__title" data-i18n="test_reading_title">Reading and Writing</h3>
+                <p class="test-card__text" data-i18n="test_reading_desc">2 modules × 27 questions, 32 minutes each.</p>
+                <div class="test-card__topics"><span class="test-card__hint" data-i18n="test_practice_hint">Practise a domain:</span><span class="topic-chips" data-section="reading"></span></div>
+                <button type="button" class="btn-primary btn-primary--large test-card__start" id="start-reading-btn" data-section="reading" data-i18n="test_start_reading">Start Reading &amp; Writing</button>
+              </article>
+            </div>
+          </section>
+
+          <!-- History -->
+          <section class="card history-card">
+            <h3 class="table-title" id="history-title" data-i18n="history_title">Your recent tests</h3>
+            <div class="table-scroll">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th data-i18n="col_date">Date</th>
+                    <th data-i18n="col_section">Section</th>
+                    <th data-i18n="col_score">Score</th>
+                    <th data-i18n="col_correct">Correct</th>
+                    <th data-i18n="col_time">Time</th>
+                    <th data-i18n="col_rating">Rating</th>
+                    <th data-i18n="col_action">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="history-table-body"></tbody>
+              </table>
+            </div>
+          </section>
         </div>
 
-        <div class="dashboard__stats">
-          <div class="card stat-card">
-            <div class="stat-card__title">Tests Taken</div>
-            <div class="stat-card__value" id="stat-tests">0</div>
-          </div>
-          <div class="card stat-card">
-            <div class="stat-card__title">Best Math</div>
-            <div class="stat-card__value" id="stat-best">-</div>
-          </div>
-          <div class="card stat-card">
-            <div class="stat-card__title">Best Reading &amp; Writing</div>
-            <div class="stat-card__value" id="stat-best-reading">-</div>
-          </div>
-          <div class="card stat-card">
-            <div class="stat-card__title">Average Score</div>
-            <div class="stat-card__value" id="stat-average">-</div>
-          </div>
-        </div>
+        <aside class="lobby__side">
+          <section class="card side-widget">
+            <h3 class="side-widget__title"><span class="pulse-dot" aria-hidden="true"></span><span data-i18n="side_platform">Platform</span></h3>
+            <div class="platform-grid" id="platform-stats"></div>
+            <div class="side-widget__subtitle" data-i18n="side_countries">Where students are from</div>
+            <div class="country-chips" id="platform-countries"></div>
+          </section>
 
-        <div class="card dashboard__history">
-          <h3 class="table-title">Your Recent Tests</h3>
-          <table class="data-table">
-            <thead>
-              <tr><th>Date</th><th>Section</th><th>Score</th><th>Correct</th><th>Action</th></tr>
-            </thead>
-            <tbody id="history-table-body"></tbody>
-          </table>
-        </div>
+          <section class="card side-widget">
+            <h3 class="side-widget__title" data-i18n="side_leaderboard">Leaderboard</h3>
+            <div class="side-widget__subtitle" data-i18n="side_leaderboard_hint">Best score per student; quickest first on ties.</div>
+            <div class="segmented" id="leaderboard-tabs" role="group">
+              <button type="button" class="segmented__btn is-active" data-section="math" data-i18n="section_math">Math</button>
+              <button type="button" class="segmented__btn" data-section="reading" data-i18n="section_reading_short">R&amp;W</button>
+            </div>
+            <ol class="leaderboard" id="leaderboard-list"></ol>
+          </section>
+
+          <section class="card side-widget">
+            <h3 class="side-widget__title" data-i18n="side_search">Find students</h3>
+            <input type="search" class="field field--compact" id="user-search" placeholder="Handle or name..." data-i18n-placeholder="side_search_placeholder" autocomplete="off">
+            <ul class="user-results" id="user-search-results"></ul>
+          </section>
+        </aside>
       </div>
     </div>
 
@@ -137,7 +286,7 @@
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
               </svg>
-              Mark for Review
+              <span data-i18n="exam_flag">Mark for Review</span>
             </button>
             <button type="button" class="tool-btn" id="calculator-btn" aria-controls="calculator-panel" aria-expanded="false">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -151,7 +300,7 @@
                 <line x1="16" y1="15" x2="16" y2="19"></line>
                 <line x1="8" y1="19" x2="12" y2="19"></line>
               </svg>
-              Calculator
+              <span data-i18n="exam_calculator">Calculator</span>
             </button>
           </div>
           <!-- Reading and Writing: the question sits here, above its choices; the passage is on the left. -->
@@ -182,7 +331,7 @@
       </div>
 
       <div class="bottom-bar__right">
-        <button type="button" class="btn-secondary" id="prev-btn" disabled>Previous</button>
+        <button type="button" class="btn-secondary" id="prev-btn" disabled data-i18n="exam_prev">Previous</button>
         <button type="button" class="btn-secondary" id="next-btn">Next</button>
       </div>
     </footer>
@@ -204,7 +353,7 @@
           <div class="score-header__details" id="score-details"></div>
         </div>
 
-        <h3 class="table-title">Question Breakdown</h3>
+        <h3 class="table-title" data-i18n="results_breakdown">Question Breakdown</h3>
         <div class="table-scroll">
           <table class="data-table">
             <thead>
@@ -215,7 +364,7 @@
         </div>
 
         <p class="notice notice--warning hidden" id="results-save-notice"></p>
-        <button type="button" class="btn-primary btn-primary--block" id="back-to-lobby-btn">Return to Lobby</button>
+        <button type="button" class="btn-primary btn-primary--block" id="back-to-lobby-btn" data-i18n="results_back">Return to Lobby</button>
       </div>
     </div>
 
@@ -233,7 +382,7 @@
           <div><strong>Correct Answer: </strong><span class="answer-value--correct" id="solution-correct-answer"></span></div>
         </div>
 
-        <button type="button" class="btn-primary btn-primary--block" data-close-modal="solution-modal">Close</button>
+        <button type="button" class="btn-primary btn-primary--block" data-close-modal="solution-modal" data-i18n="btn_close">Close</button>
       </div>
     </div>
 
@@ -253,19 +402,119 @@
           <div class="attempt-list" id="attempt-questions"></div>
         </div>
 
-        <button type="button" class="btn-primary btn-primary--block" data-close-modal="attempt-modal">Close Details</button>
+        <button type="button" class="btn-primary btn-primary--block" data-close-modal="attempt-modal" data-i18n="btn_close">Close</button>
       </div>
     </div>
 
     <div id="finish-modal" class="modal-overlay modal-overlay--top hidden">
       <div class="modal modal--compact">
-        <h3 class="modal__title">Are you sure?</h3>
-        <p class="modal__text">
+        <h3 class="modal__title" data-i18n="finish_title">Are you sure?</h3>
+        <p class="modal__text" data-i18n="finish_body">
           You will not be able to return to this module. Are you sure you want to finish?
         </p>
         <div class="modal__actions">
-          <button type="button" class="btn-secondary" data-close-modal="finish-modal">Cancel</button>
-          <button type="button" class="btn-primary" id="finish-confirm-btn">Confirm</button>
+          <button type="button" class="btn-secondary" data-close-modal="finish-modal" data-i18n="btn_cancel">Cancel</button>
+          <button type="button" class="btn-primary" id="finish-confirm-btn" data-i18n="finish_confirm">Confirm</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reloading during a test ends it: the guard's warning. -->
+    <div id="reload-modal" class="modal-overlay modal-overlay--top hidden">
+      <div class="modal modal--compact">
+        <h3 class="modal__title" data-i18n="reload_title">Reloading ends the test</h3>
+        <p class="modal__text" data-i18n="reload_body">The page cannot be reloaded during a test.</p>
+        <div class="modal__actions">
+          <button type="button" class="btn-secondary" data-close-modal="reload-modal" data-i18n="reload_continue">Continue the test</button>
+          <button type="button" class="btn-primary btn-primary--danger" id="reload-finish-btn" data-i18n="reload_finish">Finish now</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Profile settings -->
+    <div id="settings-modal" class="modal-overlay hidden">
+      <div class="modal">
+        <h3 class="modal__title" data-i18n="settings_title">Profile settings</h3>
+        <form id="settings-form" class="settings-form" novalidate>
+          <label class="settings-form__label" data-i18n="settings_avatar">Avatar</label>
+          <div class="avatar-grid" id="avatar-grid"></div>
+          <label class="settings-form__label" for="settings-username" data-i18n="settings_username">Handle</label>
+          <input type="text" id="settings-username" class="field" maxlength="40" autocomplete="nickname">
+          <label class="settings-form__label" for="settings-fullname" data-i18n="settings_fullname">Full name</label>
+          <input type="text" id="settings-fullname" class="field" maxlength="80" autocomplete="name">
+          <label class="settings-form__label" for="settings-location" data-i18n="settings_location">Country, city</label>
+          <input type="text" id="settings-location" class="field" maxlength="80" placeholder="Tajikistan, Dushanbe">
+          <p class="form-feedback" id="settings-feedback" role="status"></p>
+          <div class="modal__actions">
+            <button type="button" class="btn-secondary" data-close-modal="settings-modal" data-i18n="btn_cancel">Cancel</button>
+            <button type="submit" class="btn-primary" id="settings-save" data-i18n="btn_save">Save changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Friends -->
+    <div id="friends-modal" class="modal-overlay hidden">
+      <div class="modal">
+        <div class="modal__header">
+          <h3 class="modal__title" data-i18n="friends_title">Friends</h3>
+          <button type="button" class="icon-btn" data-close-modal="friends-modal" aria-label="Close">✕</button>
+        </div>
+        <div class="segmented segmented--stretch" id="friends-tabs" role="tablist">
+          <button type="button" class="segmented__btn is-active" data-tab="friends" role="tab"><span data-i18n="friends_tab_list">My friends</span> <span class="count" id="friends-count-list"></span></button>
+          <button type="button" class="segmented__btn" data-tab="incoming" role="tab"><span data-i18n="friends_tab_incoming">Requests</span> <span class="count" id="friends-count-incoming"></span></button>
+          <button type="button" class="segmented__btn" data-tab="outgoing" role="tab"><span data-i18n="friends_tab_outgoing">Sent</span></button>
+          <button type="button" class="segmented__btn" data-tab="find" role="tab" data-i18n="friends_tab_find">Find</button>
+        </div>
+        <div class="friends-pane" id="friends-pane-find" hidden>
+          <input type="search" class="field field--compact" id="friends-search" placeholder="Handle or name..." data-i18n-placeholder="side_search_placeholder" autocomplete="off">
+        </div>
+        <ul class="people-list" id="friends-list"></ul>
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div id="messages-modal" class="modal-overlay hidden">
+      <div class="modal modal--wide messenger">
+        <div class="modal__header">
+          <h3 class="modal__title" data-i18n="messages_title">Messages</h3>
+          <button type="button" class="icon-btn" data-close-modal="messages-modal" aria-label="Close">✕</button>
+        </div>
+        <div class="messenger__layout">
+          <ul class="messenger__contacts" id="messenger-contacts"></ul>
+          <div class="messenger__pane">
+            <div class="messenger__peer" id="messenger-peer"></div>
+            <div class="messenger__thread" id="messenger-thread"></div>
+            <form class="messenger__compose" id="messenger-form">
+              <input type="text" class="field field--compact" id="messenger-input" placeholder="Write a message..." data-i18n-placeholder="messages_placeholder" autocomplete="off" maxlength="2000">
+              <button type="submit" class="btn-primary btn--small" id="messenger-send" data-i18n="btn_send">Send</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Practice one domain -->
+    <div id="practice-modal" class="modal-overlay hidden">
+      <div class="modal modal--wide practice">
+        <div class="modal__header">
+          <div>
+            <h3 class="modal__title" id="practice-title">Practice</h3>
+            <div class="practice__progress" id="practice-progress"></div>
+          </div>
+          <button type="button" class="icon-btn" id="practice-close" aria-label="Close">✕</button>
+        </div>
+        <div id="practice-body">
+          <div id="practice-figure" class="question-figure hidden"></div>
+          <div id="practice-passage" class="question-passage practice__passage no-math hidden"></div>
+          <div id="practice-text" class="question-stem no-copy wrap-text"></div>
+          <ul class="no-copy" id="practice-options"></ul>
+          <div class="practice__feedback hidden" id="practice-feedback"></div>
+        </div>
+        <div class="modal__actions practice__actions">
+          <button type="button" class="btn-secondary" id="practice-finish" data-i18n="practice_finish">Finish</button>
+          <button type="button" class="btn-primary" id="practice-check" data-i18n="practice_check">Check answer</button>
+          <button type="button" class="btn-primary hidden" id="practice-next" data-i18n="practice_next">Next question</button>
         </div>
       </div>
     </div>

@@ -1,0 +1,88 @@
+/* Practising one domain: a question, a check, the solution, the next one. */
+.practice {
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.practice__progress {
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.practice__passage {
+  margin-bottom: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-slate-50);
+  border-left: 3px solid var(--color-slate-300);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-size: 1.02rem;
+}
+
+#practice-text {
+  font-size: 1.1rem;
+}
+
+#practice-text:empty {
+  display: none;
+}
+
+.practice__feedback {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  line-height: 1.55;
+}
+
+.practice__feedback--right {
+  background: var(--color-success-soft);
+  border: 1px solid var(--color-success);
+}
+
+.practice__feedback--wrong {
+  background: var(--color-danger-soft);
+  border: 1px solid var(--color-danger);
+}
+
+.practice__verdict {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.practice__feedback--right .practice__verdict { color: var(--color-success-ink); }
+.practice__feedback--wrong .practice__verdict { color: var(--color-danger-ink); }
+
+.practice__actions {
+  margin-top: var(--space-5);
+}
+
+.practice__actions #practice-finish {
+  margin-right: auto;
+}
+
+.practice__done {
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+}
+
+.practice__done h3 {
+  margin: var(--space-3) 0 var(--space-2);
+  color: var(--color-text-strong);
+  font-size: 1.4rem;
+}
+
+.practice__done p {
+  color: var(--color-text-muted);
+}
+
+.option-item.is-right {
+  border-color: var(--color-success);
+  background: var(--color-success-soft);
+}
+
+.option-item.is-wrong {
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+}

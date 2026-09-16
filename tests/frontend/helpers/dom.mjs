@@ -21,7 +21,9 @@ export async function bootApp({ fetchImpl }) {
   global.window = dom.window;
   global.document = dom.window.document;
   global.localStorage = dom.window.localStorage;
+  global.sessionStorage = dom.window.sessionStorage;
   global.HTMLElement = dom.window.HTMLElement;
+  global.CustomEvent = dom.window.CustomEvent;
   global.requestAnimationFrame = (callback) => setTimeout(() => callback(0), 0);
 
   const requests = [];

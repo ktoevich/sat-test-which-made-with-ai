@@ -13,6 +13,21 @@ module 2 follows how the student did in module 1.
 
 Each section is its own test with its own 200–800 score.
 
+Around the tests there is a student's profile and a community:
+
+- a **rating** (Codeforces-style, one number across both sections) that every
+  finished test moves, with tiers from Newbie to Master, a rating graph and a
+  breakdown of questions right by content domain;
+- a **profile** with an emoji avatar, handle, name and location; the
+  **leaderboard** (best score per student, quickest first on ties), a search
+  for other students and their public profiles;
+- **friends** (requests, accept, decline) and **messages** between students;
+- **practice by domain**: five questions of one domain, checked as you go,
+  with the solution after each;
+- a **retake** of any test in the history, a **reload guard** that finishes a
+  test as it stands rather than losing it, a light and a dark theme, and the
+  interface in English or Russian.
+
 - **Backend** — Flask API that serves modules from a JSON question bank.
 - **Frontend** — dependency-free ES modules (no build step) plus KaTeX for formulas
   and the Desmos graphing calculator the digital SAT provides.
@@ -104,8 +119,12 @@ backend/
     security.py          password hashing and session tokens
     cli_users.py         the `users` admin commands
     services/
-      accounts.py        registration, login, sessions
-      attempts.py        saved test history
+      accounts.py        registration, login, sessions, the profile
+      attempts.py        saved test history; each attempt moves the rating
+      ratings.py         the rating rules and tiers
+      community.py       search, public profiles, analytics, the leaderboard, platform numbers
+      social.py          friends and messages
+      practice.py        a practice set of one domain
       question_bank.py   serves bundles from the database, else from the file
       bank_store.py      the bank held in the database, one row per test
       test_builder.py    numbers a module's questions, in the order the bank stores them
@@ -140,12 +159,17 @@ public/                  the frontend, served straight from the CDN
     app.js               wires screens together
     config.js            API base URL, timings, score bounds
     api/                 fetch wrapper and endpoint functions
-    core/                DOM, storage, scoring, question helpers
+    core/                DOM, storage, scoring, question helpers, i18n (EN/RU), theme
     features/
       auth/              sign-in and sign-up
       lobby/             dashboard and history
       exam/              state, timer, navigator, question view, calculator, controller
       results/           score screen, solution and attempt modals
+      shell/             the site header: switches, messages, the profile chip
+      profile/           the profile settings modal
+      social/            the friends and messages modals
+      practice/          practising one domain
+      lobby/             the profile with its charts, the tests, history, leaderboard, search
     ui/                  screen switching, loading overlay, modals
 
 answer-keys/             the bank as readable papers, answers and solutions
@@ -170,10 +194,29 @@ Base path `/api`. Errors use one envelope: `{"error": {"code", "message"}}`.
 | POST   | `/api/auth/logout`                       | End the current session |
 | GET    | `/api/auth/me`                           | The signed-in user |
 | GET    | `/api/attempts`                          | That user's history and summary |
-| POST   | `/api/attempts`                          | Save a finished attempt |
+| POST   | `/api/attempts`                          | Save a finished attempt; moves the rating |
+| PATCH  | `/api/auth/profile`                      | Change handle, avatar, name or location |
+| GET    | `/api/users/search?q=`                   | Students whose handle or name matches |
+| GET    | `/api/users/<id>`                        | A student's public profile: numbers, history, analytics, friendship |
+| GET    | `/api/leaderboard?section=`              | Best attempt per student, highest score then quickest |
+| GET    | `/api/stats`                             | Students, tests taken, averages, countries |
+| GET    | `/api/friends`                           | Friends, requests waiting, requests sent |
+| POST   | `/api/friends/requests`                  | Ask to be friends (`user_id`); answering a request accepts it |
+| POST   | `/api/friends/requests/<id>/accept`      | Accept a request sent to you |
+| DELETE | `/api/friends/requests/<id>`             | Decline or take back a request |
+| DELETE | `/api/friends/<user_id>`                 | Remove a friend |
+| GET    | `/api/messages`                          | Conversations with unread counts |
+| GET    | `/api/messages/<user_id>`                | The thread with one student; marks it read |
+| POST   | `/api/messages/<user_id>`                | Send a message (`body`) |
+| GET    | `/api/practice?section=&domain=&count=`  | A few questions of one domain, answers included |
 
-Everything under `/api/auth/me`, `/api/auth/logout` and `/api/attempts` needs an
-`Authorization: Bearer <token>` header.
+Everything except the health check, the tests, the leaderboard, the platform
+numbers and practice sets needs an `Authorization: Bearer <token>` header.
+
+`POST /api/attempts` also takes `test_id`, `target` (the module 2 route) and
+`time_spent` in seconds; the saved attempt comes back with `rating_before` and
+`rating_after`. The rating starts at 1200 and moves by `(score − 600) × 0.45`
+per test, never below 800 (`app/services/ratings.py`).
 
 Response shape:
 

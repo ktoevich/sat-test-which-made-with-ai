@@ -18,3 +18,20 @@
   border-radius: var(--radius-md);
   font-size: 1.2rem;
 }
+
+.field--compact {
+  padding: 8px 12px;
+  font-size: 0.95rem;
+}
+
+.form-feedback {
+  min-height: 1.2em;
+  margin-top: var(--space-2);
+  color: var(--color-success);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.form-feedback.is-error {
+  color: var(--color-danger);
+}
