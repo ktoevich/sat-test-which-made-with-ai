@@ -8,21 +8,22 @@
 import { login, register } from '../../api/auth-api.js';
 import { ApiError } from '../../api/client.js';
 import { byId, setText, setVisible } from '../../core/dom.js';
+import { t } from '../../core/i18n.js';
 import { session } from '../../core/storage.js';
 
 const MODE = { LOGIN: 'login', REGISTER: 'register' };
 
 const COPY = {
-  [MODE.LOGIN]: {
-    title: 'Welcome back!',
-    subtitle: 'Enter your credentials to log in',
-    submit: 'Log In',
-  },
-  [MODE.REGISTER]: {
-    title: 'Create an account',
-    subtitle: 'Create a username and password',
-    submit: 'Sign Up',
-  },
+  [MODE.LOGIN]: () => ({
+    title: t('auth_welcome'),
+    subtitle: t('auth_welcome_sub'),
+    submit: t('auth_login'),
+  }),
+  [MODE.REGISTER]: () => ({
+    title: t('auth_create'),
+    subtitle: t('auth_create_sub'),
+    submit: t('auth_register'),
+  }),
 };
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -51,6 +52,7 @@ export class AuthScreen {
 
     this.#bindEvents();
     this.#applyMode();
+    document.addEventListener('languagechange', () => this.#applyMode());
   }
 
   #bindEvents() {
@@ -78,7 +80,7 @@ export class AuthScreen {
   }
 
   #applyMode() {
-    const copy = COPY[this.mode];
+    const copy = COPY[this.mode]();
     const isRegister = this.mode === MODE.REGISTER;
 
     this.elements.tabs.forEach((tab) => {
@@ -106,7 +108,7 @@ export class AuthScreen {
   #setBusy(busy) {
     this.busy = busy;
     this.elements.submit.disabled = busy;
-    setText(this.elements.submit, busy ? 'Please wait...' : COPY[this.mode].submit);
+    setText(this.elements.submit, busy ? 'Please wait...' : COPY[this.mode]().submit);
   }
 
   #readForm() {

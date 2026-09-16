@@ -12,9 +12,13 @@
 @import url('./components/badges.css');
 @import url('./components/tables.css');
 @import url('./components/modal.css');
+@import url('./components/header.css');
+@import url('./components/charts.css');
 
 @import url('./screens/auth.css');
 @import url('./screens/lobby.css');
 @import url('./screens/exam.css');
 @import url('./screens/results.css');
 @import url('./screens/loading.css');
+@import url('./screens/social.css');
+@import url('./screens/practice.css');

@@ -4,11 +4,13 @@ import { DEFAULT_SECTION, sectionOf } from '../../config.js';
 import { ApiError } from '../../api/client.js';
 import { fetchModule1, fetchModule2 } from '../../api/exam-api.js';
 import { byId, setText, setVisible } from '../../core/dom.js';
+import { sectionName, t } from '../../core/i18n.js';
 import { nextModuleTarget } from '../../core/scoring.js';
 import { hideLoading, runCountdown, showLoading } from '../../ui/loading-overlay.js';
 import { closeModal, openModal } from '../../ui/modal.js';
 import { ExamCalculator } from './calculator.js';
 import { ExamSession } from './exam-state.js';
+import { activeTestStore, installReloadGuard } from './reload-guard.js';
 import { ExamTimer } from './timer.js';
 import { QuestionMap } from './question-map.js';
 import { QuestionView } from './question-view.js';
@@ -24,6 +26,8 @@ export class ExamController {
     this.onFinished = onFinished;
     this.onUnavailable = onUnavailable;
     this.session = new ExamSession();
+    /** True while a module is on screen and the clock runs. */
+    this.active = false;
 
     this.view = new QuestionView({
       onSelectOption: (letter) => this.#selectOption(letter),
@@ -43,6 +47,16 @@ export class ExamController {
     };
 
     this.#bindEvents();
+    installReloadGuard({
+      isActive: () => this.active,
+      onFinishNow: () => this.terminate(),
+    });
+    document.addEventListener('languagechange', () => {
+      if (this.active) {
+        this.#labelModule();
+        this.#renderCurrent();
+      }
+    });
   }
 
   #bindEvents() {
@@ -54,6 +68,7 @@ export class ExamController {
     this.elements.flag.addEventListener('click', () => {
       this.#module.toggleFlag(this.#index);
       this.#renderCurrent();
+      this.#persist();
     });
     byId('finish-confirm-btn').addEventListener('click', () => {
       closeModal(FINISH_MODAL_ID);
@@ -76,12 +91,13 @@ export class ExamController {
   /**
    * Fetch module 1 of a section and start the attempt.
    * @param {string} section `math` or `reading`
+   * @param {{ testId?: string }} [options] a specific test, to retake it
    * @returns {Promise<boolean>} false when no test could be started.
    */
-  async startAttempt(section = DEFAULT_SECTION) {
-    showLoading('Checking for available tests');
+  async startAttempt(section = DEFAULT_SECTION, { testId } = {}) {
+    showLoading(t('loading_checking'));
     try {
-      const payload = await fetchModule1(section);
+      const payload = await fetchModule1(section, { testId });
       this.session.start(payload.test_id, payload.questions, payload.section ?? section);
       await this.#beginModule(1);
       return true;
@@ -93,10 +109,10 @@ export class ExamController {
   }
 
   async #loadModule2(target) {
-    showLoading('Module 2 is loading');
+    showLoading(t('loading_module', { n: 2 }));
     try {
       const payload = await fetchModule2({ testId: this.session.testId, target });
-      this.session.advanceTo(2, payload.questions);
+      this.session.advanceTo(2, payload.questions, target);
       await this.#beginModule(2);
     } catch (error) {
       hideLoading();
@@ -104,38 +120,100 @@ export class ExamController {
     }
   }
 
+  #labelModule() {
+    setText(
+      this.elements.sectionInfo,
+      t('exam_module', { section: sectionName(this.session.section), n: this.#module.number }),
+    );
+  }
+
   async #beginModule(number) {
     const section = this.#section;
-    setText(this.elements.sectionInfo, `${section.label}: Module ${number}`);
+    this.#labelModule();
     this.map.build(this.#module.size);
     // Only the math section offers the calculator, as on the real test.
     this.calculator.reset();
     setVisible(this.elements.calculatorButton, section.calculator);
     await runCountdown();
+    this.session.startClock();
+    this.active = true;
     this.#renderCurrent();
+    this.#persist();
     this.timer.start(section.minutes * 60);
+  }
+
+  /** Mirror the attempt into session storage, so a reload can still finish it. */
+  #persist() {
+    if (this.active) activeTestStore.write(this.session.snapshot());
+  }
+
+  /**
+   * End the test now, from the reload warning: what was not answered counts
+   * as omitted. In module 1 the second module is fetched and counted as
+   * omitted too, so the attempt is scored out of the full test.
+   */
+  async terminate() {
+    if (!this.active) return;
+    this.timer.stop();
+    this.map.close();
+    this.calculator.close();
+    this.active = false;
+    activeTestStore.clear();
+    const score = this.session.finishModule();
+    if (this.#module.number === 1) {
+      const target = nextModuleTarget(score.correct, score.total, this.#section.passMark);
+      try {
+        const payload = await fetchModule2({ testId: this.session.testId, target });
+        this.session.advanceTo(2, payload.questions, target);
+        this.session.finishModule();
+      } catch {
+        // Without module 2 the attempt is scored on module 1 alone.
+      }
+    }
+    this.onFinished(this.session, { terminated: true });
+  }
+
+  /** A test that was running when the page last unloaded: finish it as it stands. */
+  async resumeTerminated(snapshot) {
+    try {
+      this.session = ExamSession.fromSnapshot(snapshot);
+    } catch {
+      activeTestStore.clear();
+      return false;
+    }
+    if (!this.session.module) {
+      activeTestStore.clear();
+      return false;
+    }
+    this.active = true;
+    await this.terminate();
+    return true;
   }
 
   #goTo(index) {
     if (index < 0 || index >= this.#module.size) return;
     this.#module.currentIndex = index;
     this.#renderCurrent();
+    this.#persist();
   }
 
   #selectOption(letter) {
     this.#module.setAnswer(this.#index, letter);
     this.#renderCurrent();
+    this.#persist();
   }
 
   #toggleEliminate(letter) {
     this.#module.toggleEliminated(this.#index, letter);
     this.#renderCurrent();
+    this.#persist();
   }
 
   #typeAnswer(value) {
     // Do not re-render: that would drop focus out of the input mid-typing.
     this.#module.setAnswer(this.#index, value);
     this.map.update(this.#module);
+    this.#persist();
   }
 
   #renderCurrent() {
@@ -147,7 +225,7 @@ export class ExamController {
     this.elements.prev.disabled = module.currentIndex === 0;
     setText(
       this.elements.next,
-      module.currentIndex === module.size - 1 ? 'Finish' : 'Next',
+      module.currentIndex === module.size - 1 ? t('exam_finish') : t('exam_next'),
     );
   }
 
@@ -155,6 +233,8 @@ export class ExamController {
     this.timer.stop();
     this.map.close();
     this.calculator.close();
+    this.active = false;
+    activeTestStore.clear();
     const score = this.session.finishModule();
 
     if (this.#module.number === 1) {

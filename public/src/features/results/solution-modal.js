@@ -3,6 +3,7 @@
 import { renderQuestionFigure } from '../../core/coordinate-grid.js';
 import { byId, escapeHtml, setHtml, setText, setVisible } from '../../core/dom.js';
 import { renderMath } from '../../core/katex.js';
+import { t } from '../../core/i18n.js';
 import { cleanText, formatParagraphs, hasPassage } from '../../core/questions.js';
 import { openModal } from '../../ui/modal.js';
 import { describeAnswers } from './answer-summary.js';
@@ -24,7 +25,7 @@ export function openSolution(entry) {
   const { question } = entry;
   const answers = describeAnswers(entry);
 
-  setText(ui.title, `Module ${entry.module}, Question ${entry.number}`);
+  setText(ui.title, `${t('module_label', { n: entry.module })}, ${entry.number}`);
 
   const figure = renderQuestionFigure(question.image);
   setHtml(ui.figure, figure);

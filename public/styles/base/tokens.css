@@ -91,3 +91,40 @@
   --z-modal: 2000;
   --z-overlay: 9999;
 }
+
+/* The dark theme: the same tokens, other values. Set by core/theme.js as
+   data-theme on <html>; everything that reads a token follows along. */
+:root[data-theme="dark"] {
+  --color-surface: #131b2e;
+  --color-bg: #0b0f19;
+  --color-slate-50: #1e293b;
+  --color-slate-100: #1e293b;
+  --color-slate-200: #273449;
+  --color-slate-300: #334155;
+  --color-slate-400: #64748b;
+  --color-slate-500: #94a3b8;
+  --color-slate-600: #cbd5e1;
+  --color-slate-700: #e2e8f0;
+  --color-slate-800: #f1f5f9;
+  --color-slate-900: #f8fafc;
+
+  --color-text: #e2e8f0;
+  --color-text-strong: #f8fafc;
+  --color-text-muted: #94a3b8;
+  --color-border: #1e293b;
+  --color-border-strong: #334155;
+
+  --color-primary-soft: rgba(59, 130, 246, 0.18);
+  --color-primary-ink: #93c5fd;
+  --color-success-soft: rgba(16, 185, 129, 0.18);
+  --color-success-ink: #6ee7b7;
+  --color-warning-soft: rgba(245, 158, 11, 0.2);
+  --color-danger-soft: rgba(239, 68, 68, 0.18);
+  --color-danger-ink: #fca5a5;
+  --color-danger-border: rgba(239, 68, 68, 0.4);
+
+  --shadow-xs: 0 4px 15px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 30px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.5);
+}

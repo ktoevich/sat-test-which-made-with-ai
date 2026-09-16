@@ -79,3 +79,20 @@
   line-height: 1.5;
 }
 
+
+.modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.modal__header .modal__title {
+  margin-bottom: 0;
+}
+
+/* Modal backgrounds follow the theme; the overlay stays dark in both. */
+.modal-overlay {
+  background: rgba(2, 6, 23, 0.7);
+}

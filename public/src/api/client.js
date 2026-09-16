@@ -64,3 +64,5 @@ async function request(method, path, { params = {}, body } = {}) {
 
 export const apiGet = (path, params) => request('GET', path, { params });
 export const apiPost = (path, body) => request('POST', path, { body });
+export const apiPatch = (path, body) => request('PATCH', path, { body });
+export const apiDelete = (path) => request('DELETE', path);

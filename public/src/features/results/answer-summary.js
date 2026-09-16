@@ -1,12 +1,13 @@
 /** Shared formatting of "your answer / correct answer" blocks. */
 
 import { el, escapeHtml } from '../../core/dom.js';
+import { t } from '../../core/i18n.js';
 import { AnswerStatus, QuestionType, optionTextFor, statusOf } from '../../core/questions.js';
 
-const STATUS_LABEL = {
-  [AnswerStatus.CORRECT]: 'Correct',
-  [AnswerStatus.INCORRECT]: 'Incorrect',
-  [AnswerStatus.OMITTED]: 'Omitted',
+const STATUS_KEY = {
+  [AnswerStatus.CORRECT]: 'status_correct',
+  [AnswerStatus.INCORRECT]: 'status_incorrect',
+  [AnswerStatus.OMITTED]: 'status_omitted',
 };
 
 const STATUS_CLASS = {
@@ -22,6 +23,7 @@ const ANSWER_VALUE_CLASS = {
 };
 
 export const OMITTED_TEXT = 'Omitted (No answer)';
+const omittedText = () => t('status_omitted');
 
 /**
  * An answer as markup safe to insert. A multiple-choice option comes from the
@@ -40,12 +42,12 @@ export function describeAnswers(entry) {
   const omitted = status === AnswerStatus.OMITTED;
   return {
     status,
-    statusLabel: STATUS_LABEL[status],
+    statusLabel: t(STATUS_KEY[status]),
     statusClass: STATUS_CLASS[status],
     valueClass: ANSWER_VALUE_CLASS[status],
-    userText: omitted ? OMITTED_TEXT : optionTextFor(entry.question, entry.userAnswer),
+    userText: omitted ? omittedText() : optionTextFor(entry.question, entry.userAnswer),
     correctText: optionTextFor(entry.question, entry.question.answer),
-    userHtml: omitted ? escapeHtml(OMITTED_TEXT) : answerHtml(entry.question, entry.userAnswer),
+    userHtml: omitted ? escapeHtml(omittedText()) : answerHtml(entry.question, entry.userAnswer),
     correctHtml: answerHtml(entry.question, entry.question.answer),
   };
 }

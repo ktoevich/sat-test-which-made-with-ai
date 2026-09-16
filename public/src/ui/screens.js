@@ -10,6 +10,7 @@ export const Screen = {
 
 const elements = {
   auth: () => byId('auth-screen'),
+  header: () => byId('site-header'),
   lobby: () => byId('lobby-screen'),
   exam: () => byId('exam-screen'),
   examFooter: () => byId('exam-footer'),
@@ -22,6 +23,7 @@ export function showScreen(screen) {
   const isExam = screen === Screen.EXAM;
 
   setVisible(elements.auth(), screen === Screen.AUTH);
+  setVisible(elements.header(), screen === Screen.LOBBY);
   setVisible(elements.lobby(), screen === Screen.LOBBY);
   setVisible(elements.exam(), isExam);
   setVisible(elements.examFooter(), isExam);
