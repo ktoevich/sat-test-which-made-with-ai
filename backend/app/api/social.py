@@ -1,11 +1,11 @@
-"""Friends and messages, for the signed-in student."""
+"""Friends, messages and notifications, for the signed-in student."""
 
 from __future__ import annotations
 
 from flask import Blueprint, g, jsonify, request
 
 from ..db import get_db
-from ..services import accounts, social
+from ..services import accounts, notifications, social
 from .auth import login_required
 from .errors import error_response
 
@@ -73,6 +73,26 @@ def send_message(user_id: int):
     payload = request.get_json(silent=True) or {}
     message = social.send_message(get_db(), g.current_user.id, user_id, payload.get("body", ""))
     return jsonify({"message": message}), 201
+
+
+@bp.get("/notifications")
+@login_required
+def list_notifications():
+    return jsonify(notifications.listing(get_db(), g.current_user.id))
+
+
+@bp.post("/notifications/read")
+@login_required
+def read_notifications():
+    """Mark every notification read, or only the one named by ``id``."""
+    payload = request.get_json(silent=True) or {}
+    notification_id = payload.get("id")
+    if notification_id is not None:
+        try:
+            notification_id = int(notification_id)
+        except (TypeError, ValueError):
+            return error_response(422, "validation_failed", "id must be a number.")
+    return jsonify({"unread": notifications.mark_read(get_db(), g.current_user.id, notification_id)})
 
 
 @bp.errorhandler(accounts.AccountError)

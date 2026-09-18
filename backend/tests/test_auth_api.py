@@ -98,3 +98,26 @@ def test_resetting_a_password_ends_existing_sessions(client, db, registered, aut
         "/api/auth/login", json={"email": "student@example.com", "password": "brandnewpass"}
     )
     assert response.status_code == 200
+
+
+def test_settings_follow_the_account_to_the_next_login(client, registered, auth_headers):
+    assert registered["settings"] == {}
+    assert client.get("/api/auth/settings", headers=auth_headers).get_json() == {"settings": {}}
+
+    changed = client.patch("/api/auth/settings", json={"theme": "dark"}, headers=auth_headers)
+    assert changed.get_json() == {"settings": {"theme": "dark"}}
+    # Keys left out are kept.
+    changed = client.patch("/api/auth/settings", json={"language": "ru"}, headers=auth_headers)
+    assert changed.get_json() == {"settings": {"theme": "dark", "language": "ru"}}
+
+    assert client.get("/api/auth/me", headers=auth_headers).get_json()["settings"] == {"theme": "dark", "language": "ru"}
+    login = client.post("/api/auth/login", json={"email": "student@example.com", "password": "sup3rsecret"})
+    assert login.get_json()["settings"] == {"theme": "dark", "language": "ru"}
+
+
+def test_settings_accept_only_known_values(client, auth_headers):
+    for payload in ({"theme": "purple"}, {"font": "large"}, {}, ["theme"]):
+        response = client.patch("/api/auth/settings", json=payload, headers=auth_headers)
+        assert response.status_code == 422, payload
+    assert client.get("/api/auth/settings", headers=auth_headers).get_json() == {"settings": {}}
+    assert client.patch("/api/auth/settings", json={"theme": "dark"}).status_code == 401

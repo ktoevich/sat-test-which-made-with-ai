@@ -382,6 +382,37 @@
   cursor: grabbing;
 }
 
+.calculator-panel__title {
+  pointer-events: none;
+}
+
+.calculator-panel__controls {
+  display: flex;
+  gap: var(--space-1);
+}
+
+/* While dragging, the graph underneath must not take the pointer for a pan. */
+.calculator-panel.is-dragging {
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+  user-select: none;
+}
+
+.calculator-panel.is-dragging .calculator-panel__host {
+  pointer-events: none;
+}
+
+/* Minimized: only the header, whatever size the panel was resized to. */
+.calculator-panel.is-minimized {
+  height: auto !important;
+  min-height: 0;
+  resize: none;
+}
+
+.calculator-panel.is-minimized .calculator-panel__host,
+.calculator-panel.is-minimized .calculator-panel__notice {
+  display: none;
+}
+
 .calculator-panel__close {
   width: 32px;
   height: 32px;

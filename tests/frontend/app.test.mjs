@@ -123,10 +123,34 @@ test('a full attempt, from sign-up to saved history', async (t) => {
       'the Desmos script is requested on first open, not on page load',
     );
 
+    click('calculator-minimize');
+    assert.ok(byId('calculator-panel').classList.contains('is-minimized'), 'minimized to its header');
+    assert.equal(byId('calculator-minimize').getAttribute('aria-expanded'), 'false');
+    click('calculator-minimize');
+    assert.ok(!byId('calculator-panel').classList.contains('is-minimized'));
+
+    // Dragging by the header moves the panel, with the graph shielded meanwhile.
+    const panel = byId('calculator-panel');
+    const pointer = (type, target, x, y) =>
+      target.dispatchEvent(new app.window.MouseEvent(type, { bubbles: true, clientX: x, clientY: y, button: 0 }));
+    pointer('pointerdown', byId('calculator-handle'), 10, 10);
+    assert.ok(panel.classList.contains('is-dragging'));
+    pointer('pointermove', app.window, 210, 110);
+    assert.equal(panel.style.left, '200px');
+    assert.equal(panel.style.top, '100px');
+    pointer('pointermove', app.window, 99999, 99999);
+    assert.ok(parseFloat(panel.style.left) < app.window.innerWidth, 'the panel stays inside the window');
+    pointer('pointerup', app.window, 0, 0);
+    assert.ok(!panel.classList.contains('is-dragging'));
+    pointer('pointermove', app.window, 300, 300);
+    assert.ok(parseFloat(panel.style.left) !== 300, 'released, it no longer follows the pointer');
+
+    click('calculator-minimize');
     click('calculator-close');
     assert.ok(!isVisible('calculator-panel'));
     click('calculator-btn');
     assert.ok(isVisible('calculator-panel'));
+    assert.ok(!byId('calculator-panel').classList.contains('is-minimized'), 'it opens again unfolded');
   });
 
   await t.test('finishing module 1 well requests the harder module 2', async () => {

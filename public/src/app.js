@@ -2,7 +2,7 @@
 
 import { ApiError } from './api/client.js';
 import { currentUser, logout } from './api/auth-api.js';
-import { fetchConversations } from './api/social-api.js';
+import { fetchConversations, fetchNotifications } from './api/social-api.js';
 import { initLanguage } from './core/i18n.js';
 import { session } from './core/storage.js';
 import { initTheme } from './core/theme.js';
@@ -12,11 +12,13 @@ import { activeTestStore } from './features/exam/reload-guard.js';
 import { LobbyScreen } from './features/lobby/lobby-screen.js';
 import { PracticeModal } from './features/practice/practice-modal.js';
 import { ProfileSettings } from './features/profile/profile-settings.js';
+import { SettingsSync } from './features/profile/settings-sync.js';
 import { openAttempt } from './features/results/attempt-modal.js';
 import { ResultsScreen } from './features/results/results-screen.js';
 import { SiteHeader } from './features/shell/site-header.js';
 import { FriendsModal } from './features/social/friends-modal.js';
 import { MessagesModal } from './features/social/messages-modal.js';
+import { NotificationsModal } from './features/social/notifications-modal.js';
 import { registerModalDismissers } from './ui/modal.js';
 import { Screen, showScreen } from './ui/screens.js';
 
@@ -27,13 +29,20 @@ export class App {
 
     initTheme();
     initLanguage();
+    this.settingsSync = new SettingsSync();
 
-    this.auth = new AuthScreen({ onAuthenticated: (user) => this.#enterLobby(user) });
+    this.auth = new AuthScreen({
+      onAuthenticated: (user, settings) => {
+        this.settingsSync.adopt(settings);
+        this.#enterLobby(user);
+      },
+    });
 
     this.header = new SiteHeader({
       onHome: () => this.lobby.exitObserver(),
       onProfile: () => this.lobby.exitObserver(),
       onMessages: () => this.messages.open(),
+      onNotifications: () => this.notifications.open(),
       onLogout: () => this.#logout(),
     });
 
@@ -50,6 +59,11 @@ export class App {
       onUnread: (count) => this.header.setUnread(count),
       onViewUser: (id) => this.lobby.viewUser(id),
     });
+    this.notifications = new NotificationsModal({
+      onUnread: (count) => this.header.setNotifications(count),
+      onViewUser: (id) => this.lobby.viewUser(id),
+      onChanged: () => this.lobby.refresh(),
+    });
     this.friends = new FriendsModal({
       onViewUser: (id) => {
         document.getElementById('friends-modal').classList.add('hidden');
@@ -59,7 +73,10 @@ export class App {
         document.getElementById('friends-modal').classList.add('hidden');
         this.messages.openWith(id);
       },
-      onChanged: () => this.lobby.refresh(),
+      onChanged: () => {
+        this.lobby.refresh();
+        this.#refreshUnread();
+      },
     });
 
     this.lobby = new LobbyScreen({
@@ -97,7 +114,8 @@ export class App {
     }
 
     try {
-      const { user } = await currentUser();
+      const { user, settings } = await currentUser();
+      this.settingsSync.adopt(settings);
       this.user = user;
       this.header.setUser(user);
       // A test that was running when the page reloaded is finished as it stands.
@@ -131,12 +149,9 @@ export class App {
   }
 
   async #refreshUnread() {
-    try {
-      const { unread } = await fetchConversations();
-      this.header.setUnread(unread);
-    } catch {
-      this.header.setUnread(0);
-    }
+    const [conversations, notifications] = await Promise.allSettled([fetchConversations(), fetchNotifications()]);
+    this.header.setUnread(conversations.status === 'fulfilled' ? conversations.value.unread : 0);
+    this.header.setNotifications(notifications.status === 'fulfilled' ? notifications.value.unread : 0);
   }
 
   async #logout() {
@@ -150,6 +165,7 @@ export class App {
 
   #signOutLocally() {
     session.clear();
+    this.settingsSync.stop();
     this.user = null;
     this.results.hide();
     this.auth.reset();

@@ -112,6 +112,25 @@ def schema_statements(dialect: str) -> list[str]:
         """,
         "CREATE INDEX IF NOT EXISTS idx_messages_recipient ON messages(recipient_id, sender_id, id)",
         "CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id, recipient_id, id)",
+        f"""
+        CREATE TABLE IF NOT EXISTS notifications (
+            id         {_serial(dialect)},
+            user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            actor_id   BIGINT REFERENCES users(id) ON DELETE CASCADE,
+            kind       TEXT   NOT NULL,
+            ref_id     BIGINT,
+            created_at TEXT   NOT NULL,
+            read_at    TEXT
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, id)",
+        """
+        CREATE TABLE IF NOT EXISTS user_settings (
+            user_id    BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+            settings   TEXT   NOT NULL DEFAULT '{}',
+            updated_at TEXT   NOT NULL
+        )
+        """,
         """
         CREATE TABLE IF NOT EXISTS question_bundles (
             test_id    TEXT    PRIMARY KEY,

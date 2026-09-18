@@ -51,8 +51,18 @@ export function fakeBackend({ bankEmpty = false } = {}) {
 
   const friendships = [];
   const messages = [];
+  const notifications = [];
   let nextRequestId = 1;
   let nextMessageId = 1;
+  let nextNotificationId = 1;
+  const notify = (userId, kind, actorId, refId) => {
+    notifications.push({ id: nextNotificationId++, user_id: userId, actor_id: actorId, kind, ref_id: refId, created_at: new Date().toISOString(), read_at: null });
+  };
+  /** A request was accepted: its notification is read, and the asker hears back. */
+  const accepted = (row) => {
+    notifications.forEach((n) => { if (n.kind === 'friend_request' && n.ref_id === row.id) n.read_at ??= new Date().toISOString(); });
+    notify(row.from, 'friend_accepted', row.to, row.id);
+  };
   const relationship = (a, b) => {
     if (a === b) return 'self';
     const row = friendships.find((f) => (f.from === a && f.to === b) || (f.from === b && f.to === a));
@@ -116,12 +126,13 @@ export function fakeBackend({ bankEmpty = false } = {}) {
         location: '',
         rating: 1200,
         max_rating: 1200,
+        settings: {},
       };
       users.set(email, user);
       users.set(nextUserId, user);
       attempts.set(nextUserId, []);
       nextUserId += 1;
-      return json(201, { token: issueToken(user), user: publicUser(user) });
+      return json(201, { token: issueToken(user), user: publicUser(user), settings: user.settings });
     }
 
     if (path === '/api/auth/login') {
@@ -130,7 +141,7 @@ export function fakeBackend({ bankEmpty = false } = {}) {
         return fail(401, 'invalid_credentials', 'Email or password is incorrect.');
       }
       user.last_login_at = new Date().toISOString();
-      return json(200, { token: issueToken(user), user: publicUser(user) });
+      return json(200, { token: issueToken(user), user: publicUser(user), settings: user.settings });
     }
 
     if (path === '/api/auth/logout') {
@@ -141,7 +152,46 @@ export function fakeBackend({ bankEmpty = false } = {}) {
 
     if (path === '/api/auth/me') {
       const user = userFor(headers);
-      return user ? json(200, { user: publicUser(user) }) : fail(401, 'not_authenticated', 'Sign in.');
+      return user ? json(200, { user: publicUser(user), settings: user.settings }) : fail(401, 'not_authenticated', 'Sign in.');
+    }
+
+    if (path === '/api/auth/settings') {
+      const user = userFor(headers);
+      if (!user) return fail(401, 'not_authenticated', 'Sign in.');
+      if (method === 'PATCH') {
+        const allowed = { theme: ['light', 'dark'], language: ['en', 'ru'] };
+        const bad = Object.entries(payload).some(([key, value]) => !allowed[key]?.includes(value));
+        if (bad || !Object.keys(payload).length) return fail(422, 'validation_failed', 'Unknown setting.');
+        user.settings = { ...user.settings, ...payload };
+      }
+      return json(200, { settings: user.settings });
+    }
+
+    if (path === '/api/notifications') {
+      const user = userFor(headers);
+      if (!user) return fail(401, 'not_authenticated', 'Sign in.');
+      const mine = notifications.filter((n) => n.user_id === user.id);
+      return json(200, {
+        notifications: [...mine].reverse().map((n) => ({
+          id: n.id,
+          kind: n.kind,
+          ref_id: n.ref_id,
+          created_at: n.created_at,
+          read: Boolean(n.read_at),
+          pending: n.kind === 'friend_request' && friendships.some((f) => f.id === n.ref_id && f.status === 'pending'),
+          user: communityUser(users.get(n.actor_id)),
+        })),
+        unread: mine.filter((n) => !n.read_at).length,
+      });
+    }
+
+    if (path === '/api/notifications/read') {
+      const user = userFor(headers);
+      if (!user) return fail(401, 'not_authenticated', 'Sign in.');
+      notifications.forEach((n) => {
+        if (n.user_id === user.id && (payload.id === undefined || n.id === payload.id)) n.read_at ??= new Date().toISOString();
+      });
+      return json(200, { unread: notifications.filter((n) => n.user_id === user.id && !n.read_at).length });
     }
 
     if (path === '/api/auth/profile') {
@@ -259,11 +309,14 @@ export function fakeBackend({ bankEmpty = false } = {}) {
       if (existing) {
         if (existing.status === 'pending' && existing.to === user.id) {
           existing.status = 'accepted';
+          accepted(existing);
           return json(201, { relationship: 'friends' });
         }
         return fail(409, 'not_allowed', 'Already there.');
       }
-      friendships.push({ id: nextRequestId++, from: user.id, to: other, status: 'pending', created_at: new Date().toISOString() });
+      const row = { id: nextRequestId++, from: user.id, to: other, status: 'pending', created_at: new Date().toISOString() };
+      friendships.push(row);
+      notify(other, 'friend_request', user.id, row.id);
       return json(201, { relationship: 'outgoing' });
     }
 
@@ -273,13 +326,18 @@ export function fakeBackend({ bankEmpty = false } = {}) {
       const row = friendships.find((f) => f.id === Number(acceptMatch[1]));
       if (!row || row.to !== user?.id) return fail(409, 'not_allowed', 'No such request.');
       row.status = 'accepted';
+      accepted(row);
       return json(200, { relationship: 'friends' });
     }
 
     const requestMatch = /^\/api\/friends\/requests\/(\d+)$/.exec(path);
     if (requestMatch && method === 'DELETE') {
-      const index = friendships.findIndex((f) => f.id === Number(requestMatch[1]));
+      const id = Number(requestMatch[1]);
+      const index = friendships.findIndex((f) => f.id === id);
       if (index >= 0) friendships.splice(index, 1);
+      for (let i = notifications.length - 1; i >= 0; i -= 1) {
+        if (notifications[i].kind === 'friend_request' && notifications[i].ref_id === id) notifications.splice(i, 1);
+      }
       return json(204, null);
     }
 

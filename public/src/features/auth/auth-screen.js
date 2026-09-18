@@ -29,7 +29,7 @@ const COPY = {
 const MIN_PASSWORD_LENGTH = 8;
 
 export class AuthScreen {
-  /** @param {{ onAuthenticated: (user: object) => void }} options */
+  /** @param {{ onAuthenticated: (user: object, settings: object) => void }} options */
   constructor({ onAuthenticated }) {
     this.onAuthenticated = onAuthenticated;
     this.mode = MODE.LOGIN;
@@ -152,7 +152,7 @@ export class AuthScreen {
 
       session.writeToken(result.token);
       this.#clearInputs();
-      this.onAuthenticated(result.user);
+      this.onAuthenticated(result.user, result.settings);
     } catch (error) {
       this.#showError(error instanceof ApiError ? error.message : t('auth_error_generic'));
     } finally {

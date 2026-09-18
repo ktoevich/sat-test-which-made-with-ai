@@ -74,7 +74,7 @@ def _reset(url: str) -> None:
     database = connect(url)
     try:
         database.execute(
-            "DROP TABLE IF EXISTS attempts, sessions, users, question_bundles CASCADE"
+            "DROP TABLE IF EXISTS notifications, user_settings, attempts, sessions, users, question_bundles CASCADE"
         )
         database.commit()
     finally:

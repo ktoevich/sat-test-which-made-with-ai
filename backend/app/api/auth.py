@@ -7,7 +7,7 @@ from functools import wraps
 from flask import Blueprint, current_app, g, jsonify, request
 
 from ..db import get_db
-from ..services import accounts
+from ..services import accounts, preferences
 from .errors import error_response
 
 bp = Blueprint("auth", __name__, url_prefix="/api/auth")
@@ -56,7 +56,7 @@ def register():
         password=payload.get("password", ""),
         iterations=_iterations(),
     )
-    return jsonify({"token": accounts.start_session(db, user.id), "user": user.to_dict()}), 201
+    return jsonify({"token": accounts.start_session(db, user.id), "user": user.to_dict(), "settings": {}}), 201
 
 
 @bp.post("/login")
@@ -70,7 +70,13 @@ def login():
         password=payload.get("password", ""),
         iterations=_iterations(),
     )
-    return jsonify({"token": accounts.start_session(db, user.id), "user": user.to_dict()})
+    return jsonify(
+        {
+            "token": accounts.start_session(db, user.id),
+            "user": user.to_dict(),
+            "settings": preferences.get(db, user.id),
+        }
+    )
 
 
 @bp.post("/logout")
@@ -83,7 +89,7 @@ def logout():
 @bp.get("/me")
 @login_required
 def me():
-    return jsonify({"user": g.current_user.to_dict()})
+    return jsonify({"user": g.current_user.to_dict(), "settings": preferences.get(get_db(), g.current_user.id)})
 
 
 @bp.patch("/profile")
@@ -94,6 +100,21 @@ def update_profile():
     fields = {key: payload[key] for key in ("username", "avatar", "full_name", "location") if key in payload}
     user = accounts.update_profile(get_db(), g.current_user.id, **fields)
     return jsonify({"user": user.to_dict()})
+
+
+@bp.get("/settings")
+@login_required
+def get_settings():
+    """The interface settings kept with the account: theme and language."""
+    return jsonify({"settings": preferences.get(get_db(), g.current_user.id)})
+
+
+@bp.patch("/settings")
+@login_required
+def update_settings():
+    """Change some of the settings. Keys left out are kept."""
+    payload = request.get_json(silent=True)
+    return jsonify({"settings": preferences.update(get_db(), g.current_user.id, payload or {})})
 
 
 @bp.errorhandler(accounts.AccountError)

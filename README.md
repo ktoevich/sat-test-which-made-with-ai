@@ -21,12 +21,15 @@ Around the tests there is a student's profile and a community:
 - a **profile** with an emoji avatar, handle, name and location; the
   **leaderboard** (best score per student, quickest first on ties), a search
   for other students and their public profiles;
-- **friends** (requests, accept, decline) and **messages** between students;
+- **friends** (requests, accept, decline) and **messages** between students,
+  and **notifications** when someone asks to be your friend or accepts your
+  request (a waiting request can be answered from the notification);
 - **practice by domain**: five questions of one domain, checked as you go,
   with the solution after each;
 - a **retake** of any test in the history, a **reload guard** that finishes a
   test as it stands rather than losing it, a light and a dark theme, and the
-  interface in English or Russian.
+  interface in English or Russian — both kept with the account, so they
+  follow a student to another browser.
 
 - **Backend** — Flask API that serves modules from a JSON question bank.
 - **Frontend** — dependency-free ES modules (no build step) plus KaTeX for formulas
@@ -74,7 +77,8 @@ imports on the `file:` scheme.
 ### The calculator
 
 The **Calculator** button in the exam opens the Desmos graphing calculator in a
-floating panel, as on the real test. It is loaded from desmos.com the first time
+floating panel, as on the real test: dragged by its header, resized from its
+corner, minimized to its header. It is loaded from desmos.com the first time
 a student opens it, with the demo key Desmos publishes for development. A
 deployment should [request its own free key](https://www.desmos.com/api) and put
 it in the meta tag in `public/index.html`:
@@ -196,7 +200,9 @@ Base path `/api`. Errors use one envelope: `{"error": {"code", "message"}}`.
 | POST   | `/api/auth/register`                     | Create an account; returns a session token |
 | POST   | `/api/auth/login`                        | Sign in; returns a session token |
 | POST   | `/api/auth/logout`                       | End the current session |
-| GET    | `/api/auth/me`                           | The signed-in user |
+| GET    | `/api/auth/me`                           | The signed-in user and their settings |
+| GET    | `/api/auth/settings`                     | Theme and language kept with the account |
+| PATCH  | `/api/auth/settings`                     | Change `theme` (`light`/`dark`) or `language` (`en`/`ru`) |
 | GET    | `/api/attempts`                          | That user's history and summary |
 | POST   | `/api/attempts`                          | Save a finished attempt; moves the rating |
 | PATCH  | `/api/auth/profile`                      | Change handle, avatar, name or location |
@@ -212,6 +218,8 @@ Base path `/api`. Errors use one envelope: `{"error": {"code", "message"}}`.
 | GET    | `/api/messages`                          | Conversations with unread counts |
 | GET    | `/api/messages/<user_id>`                | The thread with one student; marks it read |
 | POST   | `/api/messages/<user_id>`                | Send a message (`body`) |
+| GET    | `/api/notifications`                     | Friend requests and answers, newest first, with the unread count |
+| POST   | `/api/notifications/read`                | Mark one (`id`) or all notifications read |
 | GET    | `/api/practice?section=&domain=&count=`  | A few questions of one domain, answers included |
 
 Everything except the health check, the tests, the leaderboard, the platform

@@ -268,6 +268,7 @@ test('friends, messages and observer mode between two students', async (t) => {
     helpers.submit('auth-form');
     await flush();
     await flush();
+    assert.equal(text('notifications-unread'), '1', 'the request waits as a notification');
     click('open-friends-btn');
     await flush();
     await flush();
@@ -280,6 +281,7 @@ test('friends, messages and observer mode between two students', async (t) => {
     click(byId('friends-tabs').querySelector('[data-tab="friends"]'));
     assert.match(text('friends-list'), /Nika/);
     assert.equal(text('friends-count-list'), '1');
+    assert.ok(!isVisible('notifications-unread'), 'answering the request reads its notification');
   });
 
   await t.test('messages go back and forth and the badge counts the unread', async () => {
@@ -304,6 +306,14 @@ test('friends, messages and observer mode between two students', async (t) => {
     await flush();
     assert.equal(text('messages-unread'), '1');
     assert.ok(isVisible('messages-unread'));
+    assert.equal(text('notifications-unread'), '1');
+    click('notifications-btn');
+    await flush();
+    await flush();
+    assert.ok(isVisible('notifications-modal'));
+    assert.match(text('notifications-list'), /Farrukh accepted your friend request\./);
+    assert.ok(!isVisible('notifications-unread'), 'opening the notifications reads them');
+    click(byId('notifications-modal').querySelector('[data-close-modal]'));
     click('messages-btn');
     await flush();
     await flush();
@@ -328,6 +338,67 @@ test('friends, messages and observer mode between two students', async (t) => {
     assert.equal(text('observer-friend-btn'), 'Add friend');
     assert.ok(!button.classList.contains('btn-friend-active'));
     assert.equal(text('profile-friends'), '0');
+  });
+
+  await t.test('a request is answered from the notifications', async () => {
+    click('observer-friend-btn');
+    await flush();
+    await logOut(helpers);
+    byId('auth-email').value = 'farrukh@example.com';
+    byId('auth-password').value = PASSWORD;
+    helpers.submit('auth-form');
+    await flush();
+    await flush();
+    await flush();
+    assert.equal(text('notifications-unread'), '1');
+
+    click('notifications-btn');
+    await flush();
+    await flush();
+    const [first] = all('.notification', byId('notifications-list'));
+    assert.match(first.textContent, /Nika wants to be your friend\./);
+    assert.ok(first.classList.contains('is-unread'));
+    click(first.querySelector('.btn-primary'));
+    await flush();
+    await flush();
+    assert.ok(app.requests.some((request) => /^POST \/api\/friends\/requests\/\d+\/accept$/.test(request)));
+    assert.equal(all('.notification', byId('notifications-list'))[0].querySelector('button'), null, 'an answered request has no buttons');
+    assert.equal(text('profile-friends'), '1');
+  });
+});
+
+test('the theme and the language follow the account to the next sign-in', async (t) => {
+  const backend = fakeBackend();
+  const app = await bootApp({ fetchImpl: backend });
+  const helpers = domHelpers(app.window);
+  const { byId, text, click } = helpers;
+  const { document } = app.window;
+
+  await signUp(app, helpers, { username: 'Nika', email: 'nika@example.com' });
+
+  await t.test('switching them saves them to the account', async () => {
+    click(document.querySelector('#site-header [data-theme-toggle]'));
+    click(document.querySelector('#site-header [data-lang="ru"]'));
+    await flush();
+    const saved = app.requests.filter((request) => request === 'PATCH /api/auth/settings');
+    assert.ok(saved.length >= 2, 'each switch is saved');
+  });
+
+  await t.test('another browser picks them up on sign-in', async () => {
+    await logOut(helpers);
+    // A fresh browser: nothing remembered locally.
+    click(document.querySelector('[data-lang="en"]'));
+    document.documentElement.dataset.theme = 'light';
+    app.window.localStorage.clear();
+
+    byId('auth-email').value = 'nika@example.com';
+    byId('auth-password').value = PASSWORD;
+    helpers.submit('auth-form');
+    await flush();
+    await flush();
+    assert.equal(document.documentElement.dataset.theme, 'dark');
+    assert.equal(document.documentElement.lang, 'ru');
+    assert.equal(text('logout-btn'), 'Выйти');
   });
 });
 

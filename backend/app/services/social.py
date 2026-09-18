@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from ..db import Database
-from . import accounts
+from . import accounts, notifications
 
 PENDING = "pending"
 ACCEPTED = "accepted"
@@ -117,10 +117,11 @@ def send_request(db: Database, user_id: int, other_id: int) -> dict[str, Any]:
         if int(existing["requester_id"]) == int(user_id):
             raise NotAllowed("You have already sent a request.")
         return accept_request(db, user_id, int(existing["id"]))
-    db.insert(
+    request_id = db.insert(
         "INSERT INTO friendships (requester_id, addressee_id, status, created_at) VALUES (?, ?, ?, ?)",
         (user_id, other_id, PENDING, _now()),
     )
+    notifications.notify(db, other_id, notifications.FRIEND_REQUEST, actor_id=user_id, ref_id=request_id)
     db.commit()
     return {"relationship": "outgoing"}
 
@@ -132,6 +133,10 @@ def accept_request(db: Database, user_id: int, request_id: int) -> dict[str, Any
     db.execute(
         "UPDATE friendships SET status = ?, created_at = ? WHERE id = ?", (ACCEPTED, _now(), request_id)
     )
+    notifications.settle_request(db, request_id, remove=False)
+    notifications.notify(
+        db, int(row["requester_id"]), notifications.FRIEND_ACCEPTED, actor_id=user_id, ref_id=request_id
+    )
     db.commit()
     return {"relationship": "friends"}
 
@@ -142,6 +147,7 @@ def remove_request(db: Database, user_id: int, request_id: int) -> None:
     if row is None or int(user_id) not in (int(row["requester_id"]), int(row["addressee_id"])):
         raise NotAllowed("There is no such request.")
     db.execute("DELETE FROM friendships WHERE id = ?", (request_id,))
+    notifications.settle_request(db, request_id, remove=True)
     db.commit()
 
 
