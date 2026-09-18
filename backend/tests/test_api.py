@@ -44,7 +44,7 @@ def test_a_reading_module_is_grouped_by_domain_then_difficulty(client):
 def test_an_unknown_section_is_rejected(client):
     response = client.get("/api/tests/module-1?section=science")
     assert response.status_code == 422
-    assert response.get_json()["error"]["code"] == "invalid_request"
+    assert response.get_json()["error"]["code"] == "validation_failed"
 
 
 def test_a_section_with_no_tests_is_reported_empty(tmp_path, bundle):
@@ -80,7 +80,7 @@ def test_module_2_rejects_unknown_test_id(client):
 def test_module_2_rejects_unknown_target(client):
     response = client.get("/api/tests/module-2?test_id=bundle-1&target=SIDEWAYS")
     assert response.status_code == 422
-    assert response.get_json()["error"]["code"] == "invalid_request"
+    assert response.get_json()["error"]["code"] == "validation_failed"
 
 
 def test_empty_bank_returns_service_unavailable(empty_client):

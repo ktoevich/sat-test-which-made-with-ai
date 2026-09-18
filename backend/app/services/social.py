@@ -81,7 +81,7 @@ def overview(db: Database, user_id: int) -> dict[str, Any]:
         """
         SELECT f.id AS request_id, f.status, f.created_at AS since, f.requester_id AS asked_by,
                u.id, u.email, u.username, u.created_at, u.last_login_at, u.is_disabled,
-               u.avatar, u.full_name, u.location, u.rating, u.max_rating
+               u.avatar, u.full_name, u.location, u.rating, u.max_rating, u.top_score
         FROM friendships f
         JOIN users u ON u.id = CASE WHEN f.requester_id = ? THEN f.addressee_id ELSE f.requester_id END
         WHERE (f.requester_id = ? OR f.addressee_id = ?) AND u.is_disabled = 0
@@ -173,7 +173,7 @@ def conversations(db: Database, user_id: int) -> list[dict[str, Any]]:
         """
         SELECT m.sender_id, m.recipient_id, m.body, m.sent_at, m.read_at,
                u.id, u.email, u.username, u.created_at, u.last_login_at, u.is_disabled,
-               u.avatar, u.full_name, u.location, u.rating, u.max_rating
+               u.avatar, u.full_name, u.location, u.rating, u.max_rating, u.top_score
         FROM messages m
         JOIN users u ON u.id = CASE WHEN m.sender_id = ? THEN m.recipient_id ELSE m.sender_id END
         WHERE (m.sender_id = ? OR m.recipient_id = ?) AND u.is_disabled = 0

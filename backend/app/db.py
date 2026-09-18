@@ -58,7 +58,8 @@ def schema_statements(dialect: str) -> list[str]:
             full_name     TEXT    NOT NULL DEFAULT '',
             location      TEXT    NOT NULL DEFAULT '',
             rating        INTEGER NOT NULL DEFAULT 1200,
-            max_rating    INTEGER NOT NULL DEFAULT 1200
+            max_rating    INTEGER NOT NULL DEFAULT 1200,
+            top_score     INTEGER
         )
         """,
         """
@@ -149,8 +150,27 @@ def migration_statements(dialect: str) -> list[str]:
         ("attempts", "time_spent INTEGER NOT NULL DEFAULT 0"),
         ("attempts", "rating_before INTEGER"),
         ("attempts", "rating_after INTEGER"),
+        # The best score in any section, which the tier is read from.
+        ("users", "top_score INTEGER"),
     ]
     return [f"ALTER TABLE {table} ADD COLUMN {if_absent}{column}" for table, column in columns]
+
+
+def backfill_statements() -> list[str]:
+    """Values a column added later has to be given from the rows already there.
+
+    A student who finished tests before ``top_score`` existed would otherwise
+    read as Basic until their next test. Only rows still empty are touched, so
+    running it on every start costs one pass over students with no test yet.
+    """
+    return [
+        """
+        UPDATE users SET top_score = (
+            SELECT MAX(a.score) FROM attempts a WHERE a.user_id = users.id
+        )
+        WHERE top_score IS NULL
+        """,
+    ]
 
 
 class Database:
@@ -209,6 +229,9 @@ class Database:
                 # transaction on any error, so it has to be rolled back
                 # before the connection is usable again.
                 self.rollback()
+        for statement in backfill_statements():
+            self.execute(statement)
+        self.commit()
 
 
 def _connect_sqlite(path: str | Path) -> Database:

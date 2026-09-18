@@ -10,9 +10,10 @@
 
 import { DESMOS_SCRIPT_URL } from '../../config.js';
 import { byId, hide, setText, setVisible, show } from '../../core/dom.js';
+import { t } from '../../core/i18n.js';
 
-const LOADING_TEXT = 'Loading the calculator…';
-const FAILED_TEXT = 'The calculator could not be loaded. Check your connection and try again.';
+const loadingText = () => t('exam_calculator_loading');
+const failedText = () => t('exam_calculator_failed');
 
 /** Margin the panel keeps from the viewport edges while being dragged. */
 const EDGE = 8;
@@ -94,7 +95,7 @@ export class ExamCalculator {
       this.calculator.resize();
       return;
     }
-    setText(this.elements.notice, LOADING_TEXT);
+    setText(this.elements.notice, loadingText());
     show(this.elements.notice);
     try {
       const Desmos = await loadDesmos();
@@ -106,7 +107,7 @@ export class ExamCalculator {
       });
       hide(this.elements.notice);
     } catch {
-      setText(this.elements.notice, FAILED_TEXT);
+      setText(this.elements.notice, failedText());
       setVisible(this.elements.notice, true);
     }
   }

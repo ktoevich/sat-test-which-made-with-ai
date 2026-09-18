@@ -1,8 +1,10 @@
-/** Read-only breakdown of an attempt loaded from the user's saved history. */
+/**
+ * Read-only breakdown of an attempt from a history: the student's own, with
+ * every question, or another student's, whose answers the API does not send.
+ */
 
-import { sectionOf } from '../../config.js';
 import { byId, clear, el, escapeHtml, setHtml } from '../../core/dom.js';
-import { t } from '../../core/i18n.js';
+import { sectionName, t } from '../../core/i18n.js';
 import { renderMath } from '../../core/katex.js';
 import { AnswerStatus, cleanText, hasPassage } from '../../core/questions.js';
 import { openModal } from '../../ui/modal.js';
@@ -15,8 +17,11 @@ const BORDER_MODIFIER = {
   [AnswerStatus.OMITTED]: '',
 };
 
-/** @param {{taken_at: string, section?: string, score: number, correct: number, total: number, details: object[]}} attempt */
-export function openAttempt(attempt) {
+/**
+ * @param {{taken_at: string, section?: string, score: number, correct: number, total: number, details?: object[]}} attempt
+ * @param {{owner?: {username: string}|null}} [options] the student whose attempt it is, when it is not yours
+ */
+export function openAttempt(attempt, { owner = null } = {}) {
   const modal = byId('attempt-modal');
   const list = byId('attempt-questions');
 
@@ -27,10 +32,12 @@ export function openAttempt(attempt) {
   const takenAt = new Date(attempt.taken_at);
   setHtml(
     byId('attempt-summary'),
-    `<strong>${escapeHtml(sectionOf(attempt.section).label)}</strong><br>
-     <strong>Raw Score:</strong> ${escapeHtml(attempt.correct)} / ${escapeHtml(attempt.total)} correct<br>
-     <span>Tested on: ${escapeHtml(
-       Number.isNaN(takenAt.getTime()) ? attempt.taken_at : takenAt.toLocaleString(),
+    `<strong>${escapeHtml(sectionName(attempt.section))}</strong><br>
+     <strong>${escapeHtml(t('results_raw'))}</strong> ${escapeHtml(attempt.correct)} / ${escapeHtml(attempt.total)}<br>
+     <span>${escapeHtml(
+       t('attempt_tested_on', {
+         date: Number.isNaN(takenAt.getTime()) ? attempt.taken_at : takenAt.toLocaleString(),
+       }),
      )}</span>`,
   );
 
@@ -38,7 +45,7 @@ export function openAttempt(attempt) {
   const entries = Array.isArray(attempt.details) ? attempt.details : [];
 
   if (entries.length === 0) {
-    list.append(el('p', { text: 'No detailed data was saved for this attempt.' }));
+    list.append(el('p', { text: owner ? t('attempt_details_private', { name: owner.username }) : t('attempt_no_details') }));
   } else {
     let printedModule = null;
     entries.forEach((entry) => {
@@ -76,7 +83,7 @@ function questionCard(entry) {
   card.append(
     ...[
     badge,
-    el('div', { className: 'attempt-question__number', text: `Question ${entry.number}` }),
+    el('div', { className: 'attempt-question__number', text: t('attempt_question', { n: entry.number }) }),
     passage,
     el('div', {
       className: `attempt-question__text wrap-text${reading ? ' no-math' : ''}`,
@@ -84,9 +91,9 @@ function questionCard(entry) {
     }),
     el('div', {
       className: 'answer-summary',
-      html: `<div><strong>Your Answer:</strong>
+      html: `<div><strong>${escapeHtml(t('answer_your'))}</strong>
                <span class="${answers.valueClass}">${answers.userHtml}</span></div>
-             <div><strong>Correct Answer:</strong>
+             <div><strong>${escapeHtml(t('answer_correct'))}</strong>
                <span class="answer-value--correct">${answers.correctHtml}</span></div>`,
     }),
     ].filter(Boolean),

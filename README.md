@@ -114,6 +114,9 @@ backend/
       routes.py          test endpoints
       auth.py            registration, login, session
       attempts.py        test history
+      community.py       search, public profiles, the leaderboard, platform numbers
+      social.py          friends and messages
+      practice.py        a practice set of one domain
       errors.py          shared JSON error envelope
     db.py                SQLite/PostgreSQL connections and schema
     security.py          password hashing and session tokens
@@ -139,7 +142,7 @@ backend/
       ordering.py        the order questions run in inside a module: easy first, or by domain for Reading and Writing
       templates/         the question templates, by domain
       latex.py           LaTeX formatting helpers
-    cli.py               validate / stats / blueprint / generate / import / reorder commands
+    cli.py               validate / stats / blueprint / generate / import / reorder / export commands
                          (import --section reading builds the other section)
     cli_bank.py          the `bank` commands: keep the bank in the database
   data/
@@ -151,9 +154,9 @@ public/                  the frontend, served straight from the CDN
   index.html
   styles/
     main.css             the only stylesheet the page links
-    base/                tokens, reset, utilities, animations
-    components/          buttons, forms, tables, modals, badges
-    screens/             auth, lobby, exam, results, loading
+    base/                tokens, reset, utilities, animations, KaTeX
+    components/          buttons, forms, tables, modals, badges, header, charts
+    screens/             auth, lobby, exam, results, loading, social, practice
   src/
     main.js              entry point
     app.js               wires screens together
@@ -162,19 +165,20 @@ public/                  the frontend, served straight from the CDN
     core/                DOM, storage, scoring, question helpers, i18n (EN/RU), theme
     features/
       auth/              sign-in and sign-up
-      lobby/             dashboard and history
+      lobby/             the profile with its charts, the tests, history, leaderboard, search
       exam/              state, timer, navigator, question view, calculator, controller
       results/           score screen, solution and attempt modals
       shell/             the site header: switches, messages, the profile chip
       profile/           the profile settings modal
       social/            the friends and messages modals
       practice/          practising one domain
-      lobby/             the profile with its charts, the tests, history, leaderboard, search
     ui/                  screen switching, loading overlay, modals
 
-answer-keys/             the bank as readable papers, answers and solutions
+answer-keys/             the bank as readable papers, answers and solutions (generated; not committed)
 SAT test structure/      the reference tables the modules are built from
+question-bank/           tools that rebuild the local College Board download (the download itself is not committed)
 tests/frontend/          jsdom end-to-end suite
+Makefile                 install / run / test and the question-bank targets
 package.json             test-only tooling (jsdom); the app needs no build
 index.py                 entry point for hosts that look for a Flask `app`
 vercel.json              function settings
@@ -186,8 +190,8 @@ Base path `/api`. Errors use one envelope: `{"error": {"code", "message"}}`.
 
 | Method | Path                                     | Description |
 | ------ | ---------------------------------------- | ----------- |
-| GET    | `/api/health`                            | Liveness plus the number of available tests |
-| GET    | `/api/tests/module-1?section=`           | Starts an attempt; returns `test_id`, `section` and module 1. `section` is `math` (default) or `reading` |
+| GET    | `/api/health`                            | Liveness plus the number of available tests, in total and per section |
+| GET    | `/api/tests/module-1?section=&test_id=`  | Starts an attempt; returns `test_id`, `section` and module 1. `section` is `math` (default) or `reading`; `test_id` asks for one test in particular, to retake it |
 | GET    | `/api/tests/module-2?test_id=&target=`   | Module 2 for that attempt; `target` is `HIGHER` or `LOWER` |
 | POST   | `/api/auth/register`                     | Create an account; returns a session token |
 | POST   | `/api/auth/login`                        | Sign in; returns a session token |
@@ -216,7 +220,7 @@ numbers and practice sets needs an `Authorization: Bearer <token>` header.
 `POST /api/attempts` also takes `test_id`, `target` (the module 2 route) and
 `time_spent` in seconds; the saved attempt comes back with `rating_before` and
 `rating_after`. The rating starts at 1200 and moves by `(score − 600) × 0.45`
-per test, never below 800 (`app/services/ratings.py`).
+per test, and stays between 800 and 2400 (`app/services/ratings.py`).
 
 Response shape:
 
@@ -228,8 +232,12 @@ A Reading and Writing question carries its passage as markup in `passage`,
 next to the question in `text`. `POST /api/attempts` takes a `section` too,
 and the history summary reports `by_section`.
 
-Error codes: `bank_empty` (503, nothing generated yet), `test_not_found` (404),
-`invalid_request` (422), `not_found` (404).
+Error codes: `validation_failed` (422, a bad parameter or body — the one code
+every endpoint uses for it), `not_authenticated` (401), `invalid_credentials`
+(401), `account_disabled` (403), `email_taken` (409), `not_allowed` (409),
+`not_found` (404), `test_not_found` (404), `user_not_found` (404), `bank_empty`
+(503, nothing generated yet), `database_unavailable` (503), `internal_error`
+(500).
 
 ## Building the question bank
 
@@ -348,8 +356,9 @@ module feel different.
 
 `question-bank/` holds a local download of College Board's [SAT Suite Educator
 Question Bank](https://satsuiteeducatorquestionbank.collegeboard.org/) — 3,767
-questions, 1,922 of them maths. It is not in this repository (third-party
-content, and tens of megabytes); `question-bank/tools/` rebuilds it.
+questions, 1,922 of them maths. The download itself is not in this repository
+(third-party content, and tens of megabytes); the tools that rebuild it are, in
+`question-bank/tools/`.
 
 `tools/to_bank.py` converts the maths questions into this project's format and
 `app.cli import` assembles them into blueprint-shaped tests:
@@ -414,8 +423,9 @@ answer and worked solution, one file per test plus an index:
 make export        # -> answer-keys/
 ```
 
-The folder is committed, so the current bank is browsable on GitHub without
-running anything. Regenerate it whenever you rebuild the bank.
+The folder is generated, not committed: it carries every answer of the bank it
+was written from, so `.gitignore` keeps it out of the repository the same way it
+keeps the bank itself out. Regenerate it whenever you rebuild the bank.
 
 ### Check what you have
 

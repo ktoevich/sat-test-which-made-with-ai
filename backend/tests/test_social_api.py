@@ -30,6 +30,7 @@ def test_a_request_becomes_a_friendship_when_accepted(client, auth_headers, regi
     for headers, name in ((auth_headers, "Farrukh"), (other_headers, "Nika")):
         overview = client.get("/api/friends", headers=headers).get_json()
         assert [f["user"]["username"] for f in overview["friends"]] == [name]
+        assert overview["friends"][0]["user"]["tier"] == "basic", "the list carries the tier it shows"
         assert overview["incoming"] == [] and overview["outgoing"] == []
 
     profile = client.get(f"/api/users/{other['id']}", headers=auth_headers).get_json()
@@ -75,6 +76,7 @@ def test_messages_travel_and_are_read_when_the_thread_is_opened(client, auth_hea
     inbox = client.get("/api/messages", headers=other_headers).get_json()
     assert inbox["unread"] == 1
     assert inbox["conversations"][0]["user"]["username"] == "Nika"
+    assert inbox["conversations"][0]["user"]["tier"] == "basic"
     assert inbox["conversations"][0]["unread"] == 1
     assert inbox["conversations"][0]["last_message"]["mine"] is False
 

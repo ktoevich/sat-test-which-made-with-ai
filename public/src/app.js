@@ -65,7 +65,7 @@ export class App {
     this.lobby = new LobbyScreen({
       onStartTest: (section, testId) => this.#startTest(section, testId),
       onLogout: () => this.#logout(),
-      onViewAttempt: (attempt) => openAttempt(attempt),
+      onViewAttempt: (attempt, owner) => openAttempt(attempt, { owner }),
       onPractice: (section, domain) => this.practice.open(section, domain),
       onOpenFriends: () => this.friends.open(),
       onOpenMessages: (userId) => (userId ? this.messages.openWith(userId) : this.messages.open()),

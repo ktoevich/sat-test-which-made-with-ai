@@ -1,8 +1,11 @@
 /**
  * The lobby: the student's profile, the tests, their history, and the
- * community in the sidebar. The same profile card shows another student in
- * observer mode, reached from the leaderboard or a search, with actions to
- * befriend or message them instead of the settings.
+ * community in the sidebar. Another student's profile, reached from the
+ * leaderboard, a search, the friends list or a conversation, is drawn by the
+ * same code into the same card: the numbers, the charts, the history with
+ * its buttons and the tests below all look as they do on your own. Only the
+ * buttons in the card's corner change — befriend, message and back to your
+ * own profile instead of friends, messages and settings.
  */
 
 import { listAttempts } from '../../api/attempts-api.js';
@@ -13,10 +16,11 @@ import {
   fetchPublicProfile,
   searchUsers,
 } from '../../api/community-api.js';
-import { acceptFriendRequest, fetchFriends, sendFriendRequest } from '../../api/social-api.js';
+import { acceptFriendRequest, fetchFriends, sendFriendRequest, unfriend } from '../../api/social-api.js';
 import { SECTIONS, sectionOf } from '../../config.js';
 import { byId, clear, el, setText, setVisible } from '../../core/dom.js';
 import { formatDuration, sectionName, t } from '../../core/i18n.js';
+import { tierByKey, tierOf } from '../../core/tiers.js';
 import { domainColor, ratingSummary, renderRatingChart, renderTopicsChart } from './charts.js';
 
 const DATE_OPTIONS = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
@@ -34,11 +38,20 @@ const DOMAINS = {
 
 const avatarOf = (user) => user?.avatar || '🎓';
 
+/** A student's tier: the one the API worked out, or the band of their best score. */
+const tierOfUser = (user) => (user?.tier ? tierByKey(user.tier) : tierOf(user?.top_score));
+
+/** The small coloured label with a score's tier, next to the score. */
+const tierTag = (score) => {
+  const tier = tierOf(score);
+  return el('span', { className: `tier-tag tier-tag--${tier.key}`, text: t(`tier_${tier.key}`) });
+};
+
 export class LobbyScreen {
   /**
    * @param {{ onStartTest: (section: string, testId?: string) => void,
    *           onLogout: () => void,
-   *           onViewAttempt: (attempt: object) => void,
+   *           onViewAttempt: (attempt: object, owner: object|null) => void,
    *           onPractice: (section: string, domain: string) => void,
    *           onOpenFriends: () => void,
    *           onOpenMessages: (userId?: number) => void,
@@ -56,8 +69,6 @@ export class LobbyScreen {
 
     this.elements = {
       noticeSlot: byId('lobby-notice-slot'),
-      observerBanner: byId('observer-banner'),
-      observerName: byId('observer-name'),
       avatar: byId('profile-avatar'),
       username: byId('lobby-username'),
       tier: byId('profile-tier'),
@@ -70,6 +81,7 @@ export class LobbyScreen {
       rating: byId('profile-rating'),
       maxRating: byId('profile-max-rating'),
       friends: byId('profile-friends'),
+      friendsBox: byId('profile-friends-box'),
       testsTaken: byId('stat-tests'),
       bestMath: byId('stat-best'),
       bestReading: byId('stat-best-reading'),
@@ -79,7 +91,6 @@ export class LobbyScreen {
       ratingSummary: byId('rating-summary'),
       topicsChart: byId('topics-chart'),
       topicsMode: byId('topics-mode'),
-      testsCard: byId('tests-card'),
       historyTitle: byId('history-title'),
       historyBody: byId('history-table-body'),
       platformStats: byId('platform-stats'),
@@ -99,7 +110,7 @@ export class LobbyScreen {
       button.addEventListener('click', () => handlers.onStartTest(button.dataset.section));
     }
     byId('open-friends-btn').addEventListener('click', () => handlers.onOpenFriends());
-    byId('profile-friends-box').addEventListener('click', () => {
+    elements.friendsBox.addEventListener('click', () => {
       if (!this.observed) handlers.onOpenFriends();
     });
     byId('open-messages-btn').addEventListener('click', () => handlers.onOpenMessages());
@@ -196,7 +207,7 @@ export class LobbyScreen {
 
   // -- another student's profile -----------------------------------------
 
-  /** Show another student's profile in the same card, read-only. */
+  /** Show another student's profile in the same card your own is drawn in. */
   async viewUser(userId) {
     this.#clearSearch();
     if (this.user && Number(userId) === Number(this.user.id)) {
@@ -227,20 +238,23 @@ export class LobbyScreen {
     if (this.user) this.render(this.user);
   }
 
+  /** Swap the corner buttons; everything else on the page is the same in both modes. */
   #applyMode() {
     const observing = Boolean(this.observed);
-    setVisible(this.elements.observerBanner, observing);
     setVisible(this.elements.ownerActions, !observing);
     setVisible(this.elements.observerActions, observing);
-    setVisible(this.elements.testsCard, !observing);
-    this.elements.historyBody.parentElement.parentElement.querySelector('th:last-child').classList.toggle('hidden', observing);
-    if (observing) setText(this.elements.observerName, this.observed.user.username);
+    // Your own friends open the friends list; someone else's are just a number.
+    this.elements.friendsBox.classList.toggle('stat-box--link', !observing);
     setText(
       this.elements.historyTitle,
       observing ? t('history_title_other', { name: this.observed.user.username }) : t('history_title'),
     );
   }
 
+  /**
+   * The friend button follows the friendship: add, sent, accept, and once you
+   * are friends a green "Friends ✓" that removes the friend when pressed.
+   */
   #renderFriendButton(relationship) {
     const button = this.elements.friendButton;
     const labels = {
@@ -249,25 +263,38 @@ export class LobbyScreen {
       incoming: 'profile_accept_request',
       friends: 'profile_friends_since',
     };
+    const friends = relationship === 'friends';
     setText(button, t(labels[relationship] ?? 'profile_add_friend'));
-    button.disabled = relationship === 'outgoing' || relationship === 'friends';
+    button.disabled = relationship === 'outgoing';
+    button.classList.toggle('btn-friend-active', friends);
+    if (friends) button.title = t('profile_unfriend');
+    else button.removeAttribute('title');
     button.dataset.relationship = relationship;
   }
 
   async #befriendObserved() {
     if (!this.observed) return;
+    const observed = this.observed;
     try {
-      const relationship = this.observed.relationship;
-      if (relationship === 'incoming') {
+      const before = observed.relationship;
+      if (before === 'friends') {
+        await unfriend(observed.user.id);
+        observed.relationship = 'none';
+      } else if (before === 'incoming') {
         const overview = await fetchFriends();
-        const request = overview.incoming.find((r) => r.user.id === this.observed.user.id);
+        const request = overview.incoming.find((r) => r.user.id === observed.user.id);
         if (request) await acceptFriendRequest(request.request_id);
-        this.observed.relationship = 'friends';
-      } else if (relationship === 'none') {
-        const result = await sendFriendRequest(this.observed.user.id);
-        this.observed.relationship = result.relationship;
+        observed.relationship = 'friends';
+      } else if (before === 'none') {
+        const result = await sendFriendRequest(observed.user.id);
+        observed.relationship = result.relationship;
       }
-      this.#renderFriendButton(this.observed.relationship);
+      // Asking someone who had already asked you makes you friends at once.
+      const change = (observed.relationship === 'friends') - (before === 'friends');
+      observed.friends_count = Math.max(0, (observed.friends_count ?? 0) + change);
+      if (this.observed !== observed) return;
+      setText(this.elements.friends, observed.friends_count);
+      this.#renderFriendButton(observed.relationship);
     } catch (error) {
       this.showNotice(error instanceof ApiError ? error.message : t('lobby_notice_failed'));
     }
@@ -279,9 +306,10 @@ export class LobbyScreen {
     const { elements } = this;
     setText(elements.avatar, avatarOf(user));
     setText(elements.username, user.username);
-    const tier = user.tier ?? 'Pupil';
-    setText(elements.tier, t(`tier_${tier}`));
-    elements.tier.className = `tier-badge tier-badge--${tier.split(' ')[0]}`;
+    const tier = tierOfUser(user);
+    setText(elements.tier, t(`tier_${tier.key}`));
+    elements.tier.title = t(`tier_${tier.key}_full`);
+    elements.tier.className = `tier-badge tier-badge--${tier.key}`;
     setText(elements.fullName, user.full_name || '');
     setVisible(elements.fullName, Boolean(user.full_name));
     setText(elements.location, user.location ? `📍 ${user.location}` : t('profile_location_unset'));
@@ -295,10 +323,15 @@ export class LobbyScreen {
 
   #renderSummary(summary, attempts) {
     const bySection = summary?.by_section ?? {};
+    // A best score is shown in the colour of its tier; no score is not a tier.
+    const score = (element, value) => {
+      setText(element, value ?? '-');
+      element.className = value == null ? 'stat-box__value' : `stat-box__value tier-text--${tierOf(value).key}`;
+    };
     setText(this.elements.testsTaken, summary?.taken ?? attempts.length);
-    setText(this.elements.bestMath, bySection.math?.best ?? '-');
-    setText(this.elements.bestReading, bySection.reading?.best ?? '-');
-    setText(this.elements.average, summary?.average ?? '-');
+    score(this.elements.bestMath, bySection.math?.best);
+    score(this.elements.bestReading, bySection.reading?.best);
+    score(this.elements.average, summary?.average);
   }
 
   #renderCharts() {
@@ -319,9 +352,10 @@ export class LobbyScreen {
   }
 
   #renderTopics() {
-    renderTopicsChart(this.elements.topicsChart, this.analytics?.topics ?? [], this.topicsMode, (section, domain) => {
-      if (!this.observed) this.handlers.onPractice(section, domain);
-    });
+    // A domain practises the same set whoever's chart it was picked from.
+    renderTopicsChart(this.elements.topicsChart, this.analytics?.topics ?? [], this.topicsMode, (section, domain) =>
+      this.handlers.onPractice(section, domain),
+    );
   }
 
   #renderPlaceholder(message) {
@@ -346,26 +380,29 @@ export class LobbyScreen {
           ? null
           : el('span', { className: delta >= 0 ? 'rating-delta--up' : 'rating-delta--down', text: ` ${delta >= 0 ? '+' : ''}${delta}` }),
       ]);
+      // The same two buttons on anyone's history. Someone else's attempt
+      // opens without their answers, which stay theirs, and its test is one
+      // you take yourself rather than retake.
+      const owner = own ? null : this.observed?.user ?? null;
       const actions = el('div', { className: 'history-actions' });
-      if (own) {
-        const details = el('button', { type: 'button', className: 'btn-view', text: t('btn_details') });
-        details.addEventListener('click', () => this.handlers.onViewAttempt(attempt));
-        actions.append(details);
-        if (attempt.test_id) {
-          const retake = el('button', { type: 'button', className: 'btn-primary btn--small', text: t('btn_retake') });
-          retake.addEventListener('click', () => this.handlers.onStartTest(attempt.section, attempt.test_id));
-          actions.append(retake);
-        }
+      const details = el('button', { type: 'button', className: 'btn-view', text: t('btn_details') });
+      details.addEventListener('click', () => this.handlers.onViewAttempt(attempt, owner));
+      actions.append(details);
+      if (attempt.test_id) {
+        const retake = el('button', { type: 'button', className: 'btn-primary btn--small', text: t(own ? 'btn_retake' : 'btn_take_test') });
+        retake.addEventListener('click', () => this.handlers.onStartTest(attempt.section, attempt.test_id));
+        actions.append(retake);
       }
+      const tier = tierOf(attempt.score);
       body.append(
-        el('tr', {}, [
+        el('tr', { className: `history-row history-row--${tier.key}` }, [
           el('td', { text: formatDate(attempt.taken_at) }),
           el('td', { text: sectionName(attempt.section) }),
-          el('td', {}, [el('strong', { text: attempt.score })]),
+          el('td', {}, [el('strong', { className: `tier-text--${tier.key}`, text: attempt.score }), tierTag(attempt.score)]),
           el('td', { text: `${attempt.correct}/${attempt.total}` }),
           el('td', { text: formatDuration(attempt.time_spent) }),
           ratingCell,
-          own ? el('td', {}, [actions]) : el('td', { className: 'hidden' }),
+          el('td', {}, [actions]),
         ]),
       );
     });
@@ -375,6 +412,7 @@ export class LobbyScreen {
     const user = this.observed ? this.observed.user : this.user;
     if (user) this.#renderIdentity(user);
     this.#applyMode();
+    if (this.observed) this.#renderFriendButton(this.observed.relationship);
     this.#renderHistory(this.history, { own: !this.observed });
     this.#renderCharts();
     this.#loadSidebar();
@@ -435,7 +473,7 @@ export class LobbyScreen {
             el('span', { className: 'leaderboard__name', text: row.user.username }),
             el('span', { className: 'leaderboard__sub', text: `${row.correct}/${row.total} · ⏱ ${formatDuration(row.time_spent)}` }),
           ]),
-          el('span', { className: 'leaderboard__score', text: row.score }),
+          el('span', { className: `leaderboard__score tier-text--${tierOf(row.score).key}`, title: t(`tier_${tierOf(row.score).key}_full`), text: row.score }),
         ]);
         item.addEventListener('click', () => this.viewUser(row.user.id));
         list.append(item);

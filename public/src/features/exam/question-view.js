@@ -9,6 +9,7 @@
 
 import { renderQuestionFigure } from '../../core/coordinate-grid.js';
 import { byId, clear, el, escapeHtml, setHtml, setVisible } from '../../core/dom.js';
+import { t } from '../../core/i18n.js';
 import { QuestionType, formatParagraphs, hasPassage, splitOption } from '../../core/questions.js';
 import { renderMath } from '../../core/katex.js';
 
@@ -93,7 +94,7 @@ export class QuestionView {
         type: 'button',
         className: 'option-item__eliminate',
         html: `<s>${escapeHtml(letter)}</s>`,
-        title: isEliminated ? `Restore option ${letter}` : `Cross out option ${letter}`,
+        title: t(isEliminated ? 'exam_restore' : 'exam_eliminate', { letter }),
       });
       eliminate.addEventListener('click', (event) => {
         event.stopPropagation();
@@ -110,7 +111,7 @@ export class QuestionView {
     const input = el('input', {
       type: 'text',
       className: 'field field--answer',
-      placeholder: 'Enter your answer...',
+      placeholder: t('exam_answer_placeholder'),
     });
     input.value = current ?? '';
     input.addEventListener('input', (event) => this.handlers.onTypeAnswer(event.target.value));

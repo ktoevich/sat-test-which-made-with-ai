@@ -5,6 +5,10 @@ alone: a 600 leaves it where it was, an 800 adds 90, a 400 takes 90 away.
 The rating is one number across both sections — a strong Reading and Writing
 score lifts it as much as a strong maths one — and never drops below the
 floor, so a run of bad days does not dig a hole nobody climbs out of.
+
+The tier is not read off the rating. It is the band of the student's best
+score in either section, on the test's own 200-800 scale: Basic, then
+Intermediate from 500, Advanced from 600 and Elite from 700.
 """
 
 from __future__ import annotations
@@ -17,19 +21,18 @@ CEILING = 2400
 NEUTRAL_SCORE = 600
 POINTS_PER_SCORE_POINT = 0.45
 
-#: Tier names by the rating they start at, highest first.
+#: Tiers by the SAT score they start at, highest first.
 TIERS: tuple[tuple[int, str], ...] = (
-    (2100, "Master"),
-    (1900, "Candidate Master"),
-    (1600, "Expert"),
-    (1400, "Specialist"),
-    (1200, "Pupil"),
-    (0, "Newbie"),
+    (700, "elite"),
+    (600, "advanced"),
+    (500, "intermediate"),
+    (0, "basic"),
 )
 
 
-def tier(rating: int | None) -> str:
-    value = START_RATING if rating is None else int(rating)
+def tier(best_score: int | None) -> str:
+    """The tier of a best score; a student with no test yet is Basic."""
+    value = 0 if best_score is None else int(best_score)
     return next(name for floor, name in TIERS if value >= floor)
 
 

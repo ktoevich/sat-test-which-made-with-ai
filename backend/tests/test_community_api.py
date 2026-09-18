@@ -1,5 +1,6 @@
 """Profiles, ratings, the leaderboard and the platform's numbers."""
 
+from app.db import connect
 from app.services import ratings
 
 
@@ -19,11 +20,12 @@ def attempt(client, headers, **overrides):
     return response.get_json()["attempt"]
 
 
-def test_a_new_account_starts_as_a_newbie_with_the_starting_rating(registered):
+def test_a_new_account_starts_basic_with_the_starting_rating(registered):
     user = registered["user"]
     assert user["rating"] == ratings.START_RATING
     assert user["max_rating"] == ratings.START_RATING
-    assert user["tier"] == "Pupil"
+    assert user["top_score"] is None
+    assert user["tier"] == "basic"
     assert user["avatar"] == "" and user["full_name"] == "" and user["location"] == ""
 
 
@@ -75,8 +77,44 @@ def test_the_rating_never_falls_through_the_floor():
     for _ in range(20):
         rating = ratings.apply(rating, 200)
     assert rating == ratings.FLOOR
-    assert ratings.tier(rating) == "Newbie"
-    assert ratings.tier(1650) == "Expert"
+
+
+def test_the_tier_is_the_band_of_the_best_score():
+    assert ratings.tier(None) == "basic"
+    assert [ratings.tier(s) for s in (200, 499, 500, 599, 600, 699, 700, 800)] == [
+        "basic", "basic", "intermediate", "intermediate", "advanced", "advanced", "elite", "elite",
+    ]
+
+
+def test_the_best_score_in_any_section_sets_the_tier_and_a_worse_one_keeps_it(client, auth_headers):
+    attempt(client, auth_headers, score=560, section="math")
+    me = client.get("/api/auth/me", headers=auth_headers).get_json()["user"]
+    assert (me["top_score"], me["tier"]) == (560, "intermediate")
+
+    attempt(client, auth_headers, score=710, section="reading")
+    attempt(client, auth_headers, score=300, section="math")
+    me = client.get("/api/auth/me", headers=auth_headers).get_json()["user"]
+    assert (me["top_score"], me["tier"]) == (710, "elite"), "a bad day does not take the tier away"
+
+
+def test_a_database_from_before_the_tiers_gets_its_best_scores_filled_in():
+    db = connect(":memory:")
+    db.init_schema()
+    user_id = db.insert(
+        "INSERT INTO users (email, username, password_hash, created_at) VALUES (?, ?, ?, ?)",
+        ("old@example.com", "Old", "x", "2026-01-01T00:00:00+00:00"),
+    )
+    for score in (540, 690):
+        db.execute(
+            "INSERT INTO attempts (user_id, taken_at, score, correct, total, details) VALUES (?, ?, ?, ?, ?, ?)",
+            (user_id, "2026-01-02T00:00:00+00:00", score, 1, 2, "[]"),
+        )
+    db.commit()
+    assert db.fetch_one("SELECT top_score FROM users WHERE id = ?", (user_id,))["top_score"] is None
+
+    db.init_schema()  # the next start of the app
+    assert db.fetch_one("SELECT top_score FROM users WHERE id = ?", (user_id,))["top_score"] == 690
+    db.close()
 
 
 def test_students_can_be_searched_by_handle_or_name(client, auth_headers):
@@ -107,6 +145,7 @@ def test_a_public_profile_shows_history_without_breakdowns_and_real_topic_counts
     assert profile["user"]["username"] == "Farrukh"
     assert "email" not in profile["user"]
     assert profile["summary"]["by_section"]["math"]["best"] == 650
+    assert profile["user"]["tier"] == "advanced"
     assert "details" not in profile["history"][0]
     assert profile["history"][0]["score"] == 650
     assert profile["relationship"] == "none"
@@ -136,6 +175,7 @@ def test_the_leaderboard_ranks_best_attempts_by_score_then_time(client, auth_hea
         (3, "Slow", 750),
     ]
     assert board[0]["time_spent"] == 2100
+    assert board[0]["user"]["tier"] == "elite"
 
     reading = client.get("/api/leaderboard?section=reading").get_json()["leaderboard"]
     assert [row["user"]["username"] for row in reading] == ["Slow"]

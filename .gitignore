@@ -20,8 +20,13 @@ answer-keys/
 backend/data/tests_bundle_cache.json
 
 # Local copy of College Board's question bank: third-party content, and the
-# raw dump is tens of megabytes. Rebuild it with question-bank/tools/.
-question-bank/
+# raw dump is tens of megabytes. The downloaded data stays out of the
+# repository; the tools that rebuild it are ours, so they stay in — the README
+# tells a fresh clone to run them.
+question-bank/*
+!question-bank/tools/
+!question-bank/README.md
+question-bank/tools/__pycache__/
 
 # Environment
 .env

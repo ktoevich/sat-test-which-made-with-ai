@@ -17,10 +17,10 @@ def practice_set():
     bank = current_app.extensions["question_bank"]
     section = request.args.get("section", DEFAULT_SECTION)
     if section not in SECTION_KEYS:
-        return error_response(422, "invalid_request", f"section must be one of {SECTION_KEYS}.")
+        return error_response(422, "validation_failed", f"section must be one of {SECTION_KEYS}.")
     domain = request.args.get("domain") or None
     if domain and domain not in {d.name for d in section_of(section).domains}:
-        return error_response(422, "invalid_request", f"{domain!r} is not a {section} domain.")
+        return error_response(422, "validation_failed", f"{domain!r} is not a {section} domain.")
     if not bank.has_section(section):
         return error_response(503, "bank_empty", "No generated tests are available yet.")
 

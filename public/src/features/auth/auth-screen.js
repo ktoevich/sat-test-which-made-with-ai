@@ -108,7 +108,7 @@ export class AuthScreen {
   #setBusy(busy) {
     this.busy = busy;
     this.elements.submit.disabled = busy;
-    setText(this.elements.submit, busy ? 'Please wait...' : COPY[this.mode]().submit);
+    setText(this.elements.submit, busy ? t('auth_busy') : COPY[this.mode]().submit);
   }
 
   #readForm() {
@@ -122,13 +122,13 @@ export class AuthScreen {
 
   /** Checks worth doing before spending a round trip. */
   #localProblem(form) {
-    if (!form.email || !form.password) return 'Please fill in Email and Password.';
+    if (!form.email || !form.password) return t('auth_error_missing');
     if (this.mode !== MODE.REGISTER) return null;
-    if (!form.username) return 'Please enter a username.';
+    if (!form.username) return t('auth_error_username');
     if (form.password.length < MIN_PASSWORD_LENGTH) {
-      return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+      return t('auth_error_password_short', { n: MIN_PASSWORD_LENGTH });
     }
-    if (form.password !== form.confirm) return 'Passwords do not match.';
+    if (form.password !== form.confirm) return t('auth_error_password_match');
     return null;
   }
 
@@ -154,9 +154,7 @@ export class AuthScreen {
       this.#clearInputs();
       this.onAuthenticated(result.user);
     } catch (error) {
-      this.#showError(
-        error instanceof ApiError ? error.message : 'Something went wrong. Please try again.',
-      );
+      this.#showError(error instanceof ApiError ? error.message : t('auth_error_generic'));
     } finally {
       this.#setBusy(false);
     }

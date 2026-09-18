@@ -36,7 +36,9 @@ export function fakeBackend({ bankEmpty = false } = {}) {
     location: user.location ?? '',
     rating: user.rating ?? 1200,
     max_rating: user.max_rating ?? 1200,
-    tier: (user.rating ?? 1200) >= 1400 ? 'Specialist' : 'Pupil',
+    top_score: user.top_score ?? null,
+    // The band of the best score, as the API works it out.
+    tier: [[700, 'elite'], [600, 'advanced'], [500, 'intermediate']].find(([from]) => (user.top_score ?? 0) >= from)?.[1] ?? 'basic',
     created_at: user.created_at,
   });
 
@@ -164,6 +166,7 @@ export function fakeBackend({ bankEmpty = false } = {}) {
         const after = Math.max(800, before + Math.round((payload.score - 600) * 0.45));
         user.rating = after;
         user.max_rating = Math.max(user.max_rating, after);
+        user.top_score = Math.max(user.top_score ?? 0, payload.score);
         const attempt = {
           id: nextAttemptId,
           taken_at: new Date().toISOString(),

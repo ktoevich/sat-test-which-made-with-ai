@@ -69,6 +69,8 @@ class User:
     location: str = ""
     rating: int = ratings.START_RATING
     max_rating: int = ratings.START_RATING
+    #: The best score in any section; ``None`` until the first finished test.
+    top_score: int | None = None
 
     @classmethod
     def from_row(cls, row: Mapping[str, Any]) -> "User":
@@ -84,6 +86,7 @@ class User:
             location=str(row["location"] or ""),
             rating=int(row["rating"] if row["rating"] is not None else ratings.START_RATING),
             max_rating=int(row["max_rating"] if row["max_rating"] is not None else ratings.START_RATING),
+            top_score=int(row["top_score"]) if row["top_score"] is not None else None,
         )
 
     def public_dict(self) -> dict[str, Any]:
@@ -96,7 +99,8 @@ class User:
             "location": self.location,
             "rating": self.rating,
             "max_rating": self.max_rating,
-            "tier": ratings.tier(self.rating),
+            "top_score": self.top_score,
+            "tier": ratings.tier(self.top_score),
             "created_at": self.created_at,
         }
 
@@ -233,17 +237,19 @@ def update_profile(
     return get_user(db, user_id)
 
 
-def record_rating(db: Database, user_id: int, rating: int) -> None:
-    """Store a new rating, raising the peak when it is one.
+def record_rating(db: Database, user_id: int, rating: int, *, score: int) -> None:
+    """Store a new rating after a test scored ``score``, raising the peaks it beats.
 
-    The peak is compared here rather than in SQL: SQLite spells a two-value
+    Both peaks — the rating's and the best score, which the tier is read
+    from — are compared here rather than in SQL: SQLite spells a two-value
     maximum ``MAX(a, b)`` and PostgreSQL ``GREATEST(a, b)``.
     """
-    row = db.fetch_one("SELECT max_rating FROM users WHERE id = ?", (user_id,))
+    row = db.fetch_one("SELECT max_rating, top_score FROM users WHERE id = ?", (user_id,))
     peak = max(int(row["max_rating"] or 0) if row else 0, int(rating))
+    top = max(int(row["top_score"] or 0) if row else 0, int(score))
     db.execute(
-        "UPDATE users SET rating = ?, max_rating = ? WHERE id = ?",
-        (int(rating), peak, user_id),
+        "UPDATE users SET rating = ?, max_rating = ?, top_score = ? WHERE id = ?",
+        (int(rating), peak, top, user_id),
     )
 
 

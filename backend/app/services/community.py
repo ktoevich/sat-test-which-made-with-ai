@@ -208,7 +208,7 @@ def leaderboard(db: Database, *, section: str | None = None, limit: int = 20) ->
     rows = db.fetch_all(
         """
         SELECT u.id, u.email, u.username, u.created_at, u.last_login_at, u.is_disabled,
-               u.avatar, u.full_name, u.location, u.rating, u.max_rating,
+               u.avatar, u.full_name, u.location, u.rating, u.max_rating, u.top_score,
                best.score AS best_score, best.time_spent AS best_time,
                best.taken_at AS best_at, best.correct AS best_correct, best.total AS best_total,
                best.target AS best_target
@@ -292,5 +292,5 @@ def platform_stats(db: Database) -> dict[str, Any]:
     }
 
 
-def tier_of(rating: int | None) -> str:
-    return ratings.tier(rating)
+def tier_of(best_score: int | None) -> str:
+    return ratings.tier(best_score)

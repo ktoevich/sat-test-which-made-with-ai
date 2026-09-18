@@ -84,6 +84,17 @@
   /* A graph offered as an answer choice: four of them have to fit a panel. */
   --choice-figure-max-height: 200px;
 
+  /* Score tiers: Basic, Intermediate (500+), Advanced (600+), Elite (700+).
+     The ink is the text colour, darkened on white to stay readable. */
+  --tier-basic: #94a3b8;
+  --tier-basic-ink: #64748b;
+  --tier-intermediate: #22c55e;
+  --tier-intermediate-ink: #15803d;
+  --tier-advanced: #06b6d4;
+  --tier-advanced-ink: #0e7490;
+  --tier-elite: #6366f1;
+  --tier-elite-ink: #4f46e5;
+
   /* Layers */
   --z-bar: 10;
   --z-map: 100;
@@ -122,6 +133,11 @@
   --color-danger-soft: rgba(239, 68, 68, 0.18);
   --color-danger-ink: #fca5a5;
   --color-danger-border: rgba(239, 68, 68, 0.4);
+
+  --tier-basic-ink: #94a3b8;
+  --tier-intermediate-ink: #4ade80;
+  --tier-advanced-ink: #22d3ee;
+  --tier-elite-ink: #a5b4fc;
 
   --shadow-xs: 0 4px 15px rgba(0, 0, 0, 0.3);
   --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.4);

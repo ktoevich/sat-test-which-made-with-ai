@@ -88,7 +88,7 @@ def record(
             rating_after,
         ),
     )
-    accounts.record_rating(db, user_id, rating_after)
+    accounts.record_rating(db, user_id, rating_after, score=int(score))
     db.commit()
     return get(db, user_id, attempt_id)
 

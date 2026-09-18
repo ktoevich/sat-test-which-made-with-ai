@@ -65,9 +65,6 @@ export function sectionOf(key) {
   return SECTIONS[key] ?? SECTIONS[DEFAULT_SECTION];
 }
 
-/** Time allowed per math module. */
-export const MODULE_DURATION_SECONDS = SECTIONS.math.minutes * 60;
-
 /** Seconds counted down on screen before a module starts. */
 export const COUNTDOWN_SECONDS = 3;
 

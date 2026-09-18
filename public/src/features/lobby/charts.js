@@ -1,23 +1,17 @@
 /**
  * The profile's charts, drawn as inline SVG from the analytics the API returns.
  *
- * The rating chart plots the rating after every finished test, on a scale
- * banded by tier, with a tooltip per point. The topics chart shows how many
+ * The rating chart plots the rating after every finished test, each point in
+ * the colour of the tier its score reached, with a tooltip per point. The
+ * tiers are bands of the score, not of the rating, so the rating's own scale
+ * carries no tier bands. The topics chart shows how many
  * questions of each content domain the student has got right, as a donut or
  * as bars; a domain is clickable, to practise it.
  */
 
 import { el, escapeHtml } from '../../core/dom.js';
 import { sectionName, t } from '../../core/i18n.js';
-
-const TIER_BANDS = [
-  { name: 'Newbie', from: 800, to: 1200, color: '#94a3b8' },
-  { name: 'Pupil', from: 1200, to: 1400, color: '#22c55e' },
-  { name: 'Specialist', from: 1400, to: 1600, color: '#06b6d4' },
-  { name: 'Expert', from: 1600, to: 1900, color: '#6366f1' },
-  { name: 'Candidate Master', from: 1900, to: 2100, color: '#d946ef' },
-  { name: 'Master', from: 2100, to: 2400, color: '#f97316' },
-];
+import { tierOf } from '../../core/tiers.js';
 
 const DOMAIN_COLORS = {
   Algebra: '#f87171',
@@ -29,9 +23,6 @@ const DOMAIN_COLORS = {
   'Expression of Ideas': '#a3e635',
   'Standard English Conventions': '#f472b6',
 };
-
-const tierColor = (rating) =>
-  [...TIER_BANDS].reverse().find((band) => rating >= band.from)?.color ?? TIER_BANDS[0].color;
 
 const formatDate = (iso) => {
   const date = new Date(iso);
@@ -64,7 +55,7 @@ export function renderRatingChart(container, tooltip, points) {
 
   const width = 960;
   const height = 340;
-  const pad = { left: 56, right: 140, top: 30, bottom: 44 };
+  const pad = { left: 56, right: 32, top: 30, bottom: 44 };
   const chartW = width - pad.left - pad.right;
   const chartH = height - pad.top - pad.bottom;
 
@@ -83,15 +74,6 @@ export function renderRatingChart(container, tooltip, points) {
       <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"></stop>
     </linearGradient>
   </defs>`;
-
-  // Tier bands, only the ones inside the visible range.
-  TIER_BANDS.forEach((band) => {
-    const top = Math.max(band.from, minRating);
-    const bottom = Math.min(band.to, maxRating);
-    if (bottom <= top) return;
-    svg += `<rect x="${pad.left}" y="${y(bottom)}" width="${chartW}" height="${y(top) - y(bottom)}" fill="${band.color}" opacity="0.08"></rect>`;
-    svg += `<text x="${pad.left + chartW + 10}" y="${(y(top) + y(bottom)) / 2 + 4}" font-size="11" font-weight="700" fill="${band.color}">${escapeHtml(t(`tier_${band.name}`))}</text>`;
-  });
 
   for (let r = minRating; r <= maxRating; r += 100) {
     svg += `<line x1="${pad.left}" y1="${y(r)}" x2="${pad.left + chartW}" y2="${y(r)}" stroke="currentColor" stroke-opacity="0.12" stroke-dasharray="${r % 200 ? '3,3' : 'none'}"></line>`;
@@ -117,7 +99,7 @@ export function renderRatingChart(container, tooltip, points) {
     } else if (isLast) {
       svg += `<g transform="translate(${c.x}, ${c.y - 24})"><rect x="-24" y="-10" width="48" height="18" rx="9" fill="#06b6d4"></rect><text x="0" y="3" text-anchor="middle" font-size="10.5" font-weight="800" fill="#fff">${c.point.rating_after}</text></g>`;
     }
-    svg += `<g class="rating-point" data-index="${i}"><circle cx="${c.x}" cy="${c.y}" r="14" fill="transparent"></circle><circle cx="${c.x}" cy="${c.y}" r="${isPeak || isLast ? 6.5 : 5}" fill="var(--color-surface)" stroke="${isPeak ? '#f59e0b' : tierColor(c.point.rating_after)}" stroke-width="2.8"></circle></g>`;
+    svg += `<g class="rating-point" data-index="${i}"><circle cx="${c.x}" cy="${c.y}" r="14" fill="transparent"></circle><circle cx="${c.x}" cy="${c.y}" r="${isPeak || isLast ? 6.5 : 5}" fill="var(--color-surface)" stroke="${isPeak ? '#f59e0b' : tierOf(c.point.score).color}" stroke-width="2.8"></circle></g>`;
   });
   svg += '</svg>';
   container.innerHTML = svg;
@@ -127,9 +109,11 @@ export function renderRatingChart(container, tooltip, points) {
     node.addEventListener('mouseenter', () => {
       const point = data[Number(node.dataset.index)];
       const delta = (point.rating_after ?? 0) - (point.rating_before ?? point.rating_after);
+      const tier = tierOf(point.score);
       tooltip.innerHTML = `
         <div><strong>${escapeHtml(sectionName(point.section))}</strong> · ${escapeHtml(formatDate(point.taken_at))}</div>
         <div>${escapeHtml(t('col_score'))}: <strong>${point.score}</strong> (${point.correct}/${point.total})</div>
+        <div>${escapeHtml(t('chart_tier'))} <strong style="color:${tier.color}">${escapeHtml(t(`tier_${tier.key}`))}</strong></div>
         <div>${escapeHtml(t('col_rating'))}: <strong>${point.rating_before ?? '–'} → ${point.rating_after}</strong>
           <span class="${delta >= 0 ? 'rating-delta--up' : 'rating-delta--down'}">(${delta >= 0 ? '+' : ''}${delta})</span></div>`;
       tooltip.classList.remove('hidden');

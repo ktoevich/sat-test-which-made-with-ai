@@ -33,7 +33,7 @@ def public_profile(user_id: int):
 def leaderboard():
     section = request.args.get("section", DEFAULT_SECTION)
     if section not in SECTION_KEYS:
-        return error_response(422, "invalid_request", f"section must be one of {SECTION_KEYS}.")
+        return error_response(422, "validation_failed", f"section must be one of {SECTION_KEYS}.")
     limit = request.args.get("limit", 20, type=int)
     return jsonify({"section": section, "leaderboard": community.leaderboard(get_db(), section=section, limit=limit)})
 

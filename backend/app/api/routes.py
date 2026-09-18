@@ -36,7 +36,7 @@ def module_1():
     section = request.args.get("section", DEFAULT_SECTION)
     if section not in SECTION_KEYS:
         return error_response(
-            422, "invalid_request", f"Unknown section {section!r}; expected one of {SECTION_KEYS}."
+            422, "validation_failed", f"Unknown section {section!r}; expected one of {SECTION_KEYS}."
         )
     if not bank.has_section(section):
         return error_response(
@@ -88,7 +88,7 @@ def module_2():
 
 @bp.errorhandler(QuestionBankError)
 def handle_bank_error(exc: QuestionBankError):
-    return error_response(422, "invalid_request", str(exc))
+    return error_response(422, "validation_failed", str(exc))
 
 
 @bp.app_errorhandler(404)

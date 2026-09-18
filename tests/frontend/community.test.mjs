@@ -64,7 +64,8 @@ test('the profile, its settings, the switches and the charts', async (t) => {
     assert.equal(text('header-username'), 'Nika');
     assert.equal(text('lobby-username'), 'Nika');
     assert.equal(text('profile-rating'), '1200');
-    assert.equal(text('profile-tier'), 'Pupil');
+    assert.equal(text('profile-tier'), 'Basic', 'no test yet is the Basic tier');
+    assert.equal(byId('profile-tier').title, 'Basic Digital SAT');
     assert.match(text('rating-chart'), /Finish a test/);
   });
 
@@ -82,7 +83,7 @@ test('the profile, its settings, the switches and the charts', async (t) => {
     assert.equal(document.documentElement.lang, 'ru');
     assert.equal(text('logout-btn'), 'Выйти');
     assert.equal(text('start-test-btn'), 'Начать Math');
-    assert.equal(text('profile-tier'), 'Ученик');
+    assert.equal(text('profile-tier'), 'Базовый');
     click(document.querySelector('#site-header [data-lang="en"]'));
     assert.equal(text('logout-btn'), 'Logout');
   });
@@ -118,6 +119,11 @@ test('the profile, its settings, the switches and the charts', async (t) => {
     assert.ok(byId('topics-chart').querySelector('.topics-bar'));
     assert.match(text('history-table-body'), /Retake/);
     assert.match(text('history-table-body'), /Math/);
+    const row = byId('history-table-body').querySelector('tr');
+    const score = Number(row.querySelector('strong').textContent);
+    const tier = score >= 700 ? 'elite' : score >= 600 ? 'advanced' : score >= 500 ? 'intermediate' : 'basic';
+    assert.ok(row.querySelector(`.tier-tag--${tier}`), 'each row carries the tier of its score');
+    assert.ok(byId('profile-tier').classList.contains(`tier-badge--${tier}`), 'the best score sets the tier');
   });
 
   await t.test('retaking asks for the same test', async () => {
@@ -175,10 +181,14 @@ test('friends, messages and observer mode between two students', async (t) => {
   const { byId, isVisible, text, click, type, all } = helpers;
 
   await signUp(app, helpers, { username: 'Farrukh', email: 'farrukh@example.com' });
+  await takeMathTest(app, helpers);
+  click('back-to-lobby-btn');
+  await flush();
+  await flush();
   await logOut(helpers);
   await signUp(app, helpers, { username: 'Nika', email: 'nika@example.com' });
 
-  await t.test('searching finds a student and opens their profile in observer mode', async () => {
+  const openFarrukh = async () => {
     type(byId('user-search'), 'farr');
     await wait(250);
     await flush();
@@ -186,11 +196,59 @@ test('friends, messages and observer mode between two students', async (t) => {
     click(byId('user-search-results').querySelector('.user-row'));
     await flush();
     await flush();
-    assert.ok(isVisible('observer-banner'));
+  };
+
+  await t.test('someone else\'s profile is the same page as your own', async () => {
+    await openFarrukh();
     assert.equal(text('lobby-username'), 'Farrukh');
-    assert.ok(!isVisible('tests-card'), 'no tests can be started from someone else\'s profile');
+    assert.equal(byId('observer-banner'), null, 'no banner above the card');
+    assert.ok(isVisible('tests-card'), 'the tests stay where they are on your own page');
+    assert.ok(byId('rating-chart').querySelector('svg'), 'their rating graph is drawn');
+    assert.match(text('history-title'), /Farrukh/);
+    const row = byId('history-table-body').querySelector('tr');
+    assert.ok(row.querySelector('.tier-tag'), 'their history carries the tiers too');
+    assert.match(row.textContent, /Details/);
+    assert.match(row.textContent, /Take this test/);
+  });
+
+  await t.test('only the buttons in the corner change', () => {
+    assert.ok(!isVisible('profile-actions'), 'no friends, messages or settings of your own');
     assert.ok(isVisible('observer-actions'));
     assert.equal(text('observer-friend-btn'), 'Add friend');
+    assert.equal(text('observer-message-btn'), 'Message');
+    assert.equal(text('observer-exit'), 'My profile');
+  });
+
+  await t.test('their attempt opens without their answers', () => {
+    const details = all('.btn-view', byId('history-table-body'))[0];
+    click(details);
+    assert.ok(isVisible('attempt-modal'));
+    assert.match(text('attempt-questions'), /Only Farrukh sees the answers/);
+    click(byId('attempt-modal').querySelector('[data-close-modal]'));
+  });
+
+  await t.test('their test is one you take yourself', async () => {
+    click(byId('history-table-body').querySelector('.btn-primary'));
+    await flush();
+    assert.ok(app.requests.includes('GET /api/tests/module-1?section=math&test_id=t1'));
+    assert.ok(isVisible('exam-screen'));
+    await wait(COUNTDOWN_WAIT_MS);
+    click('next-btn');
+    click('next-btn');
+    click('next-btn');
+    click('finish-confirm-btn');
+    await wait(50);
+    await wait(COUNTDOWN_WAIT_MS);
+    click('next-btn');
+    click('next-btn');
+    click('finish-confirm-btn');
+    await flush();
+    click('back-to-lobby-btn');
+    await flush();
+    await flush();
+    assert.equal(text('lobby-username'), 'Nika', 'the test is yours: you come back to your own page');
+    assert.ok(isVisible('profile-actions'));
+    await openFarrukh();
   });
 
   await t.test('a friend request is sent from the profile and accepted from the modal', async () => {
@@ -253,6 +311,23 @@ test('friends, messages and observer mode between two students', async (t) => {
     assert.match(text('messenger-thread'), /Hi Nika!/);
     assert.ok(!isVisible('messages-unread'), 'reading the thread clears the badge');
     click(byId('messages-modal').querySelector('[data-close-modal]'));
+  });
+
+  await t.test('a friend\'s profile shows the friendship, and pressing it again unfriends', async () => {
+    await openFarrukh();
+    const button = byId('observer-friend-btn');
+    assert.equal(text('observer-friend-btn'), 'Friends ✓');
+    assert.ok(button.classList.contains('btn-friend-active'));
+    assert.ok(!button.disabled);
+    assert.equal(text('profile-friends'), '1');
+
+    click(button);
+    await flush();
+    await flush();
+    assert.ok(app.requests.some((request) => /^DELETE \/api\/friends\/\d+$/.test(request)));
+    assert.equal(text('observer-friend-btn'), 'Add friend');
+    assert.ok(!button.classList.contains('btn-friend-active'));
+    assert.equal(text('profile-friends'), '0');
   });
 });
 

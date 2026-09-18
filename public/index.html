@@ -130,19 +130,16 @@
         <div class="lobby__main">
           <div id="lobby-notice-slot"></div>
 
-          <!-- The profile: yours, or another student's in observer mode. -->
+          <!-- The profile: yours, or another student's in observer mode. Both
+               are the same card; only the buttons in the corner differ. -->
           <section class="card profile-card" id="profile-card">
-            <div class="observer-banner hidden" id="observer-banner">
-              <span><span data-i18n="observer_viewing">Viewing the profile of</span> <strong id="observer-name"></strong></span>
-              <button type="button" class="btn-secondary btn--small" id="observer-exit" data-i18n="observer_back">Back to my profile</button>
-            </div>
             <div class="profile-card__header">
               <div class="profile-card__identity">
                 <div class="profile-avatar" id="profile-avatar" aria-hidden="true">🎓</div>
                 <div>
                   <div class="profile-handle-row">
                     <h1 class="profile-handle" id="profile-handle"><span id="lobby-username">Student</span></h1>
-                    <span class="tier-badge" id="profile-tier">Pupil</span>
+                    <span class="tier-badge tier-badge--basic" id="profile-tier">Basic</span>
                   </div>
                   <div class="profile-meta">
                     <span id="profile-fullname" class="hidden"></span>
@@ -159,6 +156,7 @@
               <div class="profile-card__actions hidden" id="observer-actions">
                 <button type="button" class="btn-primary btn--small" id="observer-friend-btn"></button>
                 <button type="button" class="btn-secondary btn--small" id="observer-message-btn" data-i18n="profile_message">Message</button>
+                <button type="button" class="btn-secondary btn--small" id="observer-exit" data-i18n="observer_back">My profile</button>
               </div>
             </div>
 
@@ -313,7 +311,7 @@
     <!-- The graphing calculator: floats over the exam, dragged by its header. -->
     <div id="calculator-panel" class="calculator-panel hidden" role="dialog" aria-label="Graphing calculator">
       <div class="calculator-panel__header" id="calculator-handle">
-        <span class="calculator-panel__title">Calculator</span>
+        <span class="calculator-panel__title" data-i18n="exam_calculator">Calculator</span>
         <button type="button" class="calculator-panel__close" id="calculator-close" aria-label="Close the calculator">&times;</button>
       </div>
       <p class="calculator-panel__notice hidden" id="calculator-notice"></p>
@@ -336,11 +334,13 @@
       </div>
     </footer>
 
-    <!-- ===================== Intermission / results ===================== -->
+    <!-- ===================== Results ===================== -->
+    <!-- The title and the message are set from i18n every time the screen is
+         shown, so the copy below is only what the markup starts with. -->
     <div id="intermission-screen" class="intermission-overlay hidden">
-      <h1 class="intermission-overlay__title" id="intermission-title">Module 1 Complete</h1>
+      <h1 class="intermission-overlay__title" id="intermission-title">Test Complete!</h1>
       <p class="intermission-overlay__message" id="intermission-message">
-        Take a short breath. Ready to proceed to Module 2?
+        Here is your detailed performance summary.
       </p>
 
       <div id="final-results" class="results-card hidden">
@@ -357,7 +357,7 @@
         <div class="table-scroll">
           <table class="data-table">
             <thead>
-              <tr><th>#</th><th>Difficulty</th><th>Status</th><th>Action</th></tr>
+              <tr><th>#</th><th data-i18n="col_difficulty">Difficulty</th><th data-i18n="col_status">Status</th><th data-i18n="col_action">Action</th></tr>
             </thead>
             <tbody id="review-table-body"></tbody>
           </table>
@@ -378,8 +378,8 @@
         <div class="rationale no-copy hidden" id="solution-rationale"></div>
 
         <div class="answer-summary answer-summary--plain">
-          <div><strong>Your Answer: </strong><span id="solution-user-answer"></span></div>
-          <div><strong>Correct Answer: </strong><span class="answer-value--correct" id="solution-correct-answer"></span></div>
+          <div><strong data-i18n="answer_your">Your Answer:</strong> <span id="solution-user-answer"></span></div>
+          <div><strong data-i18n="answer_correct">Correct Answer:</strong> <span class="answer-value--correct" id="solution-correct-answer"></span></div>
         </div>
 
         <button type="button" class="btn-primary btn-primary--block" data-close-modal="solution-modal" data-i18n="btn_close">Close</button>
@@ -389,7 +389,7 @@
     <div id="attempt-modal" class="modal-overlay hidden">
       <div class="modal modal--wide">
         <div class="score-header">
-          <h2 class="score-header__title">Test Results</h2>
+          <h2 class="score-header__title" data-i18n="attempt_title">Test Results</h2>
           <div class="score-circle score-circle--small">
             <div class="score-circle__fill" id="attempt-score-fill"></div>
             <span class="score-circle__value" id="attempt-score-value">800</span>
@@ -397,7 +397,7 @@
           <div class="score-header__details" id="attempt-summary"></div>
         </div>
 
-        <h3 class="table-title">Detailed Breakdown</h3>
+        <h3 class="table-title" data-i18n="attempt_breakdown">Detailed Breakdown</h3>
         <div class="table-scroll">
           <div class="attempt-list" id="attempt-questions"></div>
         </div>
@@ -526,7 +526,7 @@
       </h1>
       <div id="countdown" class="countdown hidden">
         <span class="countdown__number" id="countdown-number">3</span>
-        <p class="countdown__caption">Get ready</p>
+        <p class="countdown__caption" data-i18n="countdown_ready">Get ready</p>
       </div>
     </div>
   </div>

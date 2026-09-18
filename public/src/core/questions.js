@@ -102,7 +102,3 @@ export function optionTextFor(question, letter) {
 export function hasPassage(question) {
   return typeof question?.passage === 'string' && question.passage.trim() !== '';
 }
-
-export function difficultyModifier(question) {
-  return String(question.difficulty ?? 'Medium').toLowerCase();
-}

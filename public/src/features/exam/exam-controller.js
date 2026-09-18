@@ -103,7 +103,7 @@ export class ExamController {
       return true;
     } catch (error) {
       hideLoading();
-      this.onUnavailable(ExamController.#messageFor(error, 'Could not load Module 1.'));
+      this.onUnavailable(ExamController.#messageFor(error, t('exam_module_failed', { n: 1 })));
       return false;
     }
   }
@@ -116,7 +116,7 @@ export class ExamController {
       await this.#beginModule(2);
     } catch (error) {
       hideLoading();
-      this.onUnavailable(ExamController.#messageFor(error, 'Could not load Module 2.'));
+      this.onUnavailable(ExamController.#messageFor(error, t('exam_module_failed', { n: 2 })));
     }
   }
 

@@ -22,7 +22,6 @@ const ANSWER_VALUE_CLASS = {
   [AnswerStatus.OMITTED]: 'answer-value--omitted',
 };
 
-export const OMITTED_TEXT = 'Omitted (No answer)';
 const omittedText = () => t('status_omitted');
 
 /**

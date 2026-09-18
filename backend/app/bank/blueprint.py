@@ -32,13 +32,15 @@ from typing import Iterator
 
 from . import taxonomy
 
-QUESTIONS_PER_MODULE = 22
-MULTIPLE_CHOICE_PER_MODULE = 17
-STUDENT_RESPONSE_PER_MODULE = QUESTIONS_PER_MODULE - MULTIPLE_CHOICE_PER_MODULE
+#: The shape of a math module, taken from the section itself so the two modules
+#: cannot drift apart — the Reading and Writing blueprint below does the same.
+QUESTIONS_PER_MODULE = taxonomy.MATH.questions_per_module
+MULTIPLE_CHOICE_PER_MODULE = taxonomy.MATH.multiple_choice_per_module
+STUDENT_RESPONSE_PER_MODULE = taxonomy.MATH.student_response_per_module
 
 #: Correct answers in module 1 (out of :data:`QUESTIONS_PER_MODULE`) needed for
 #: the harder module 2.
-ADAPTIVE_MIN_CORRECT = 15
+ADAPTIVE_MIN_CORRECT = taxonomy.MATH.adaptive_min_correct
 
 
 class BlueprintError(ValueError):
