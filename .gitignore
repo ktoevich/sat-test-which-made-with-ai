@@ -28,6 +28,9 @@ question-bank/*
 !question-bank/README.md
 question-bank/tools/__pycache__/
 
+# The standalone test's questions are built from that same bank.
+standalone-test/questions.js
+
 # Environment
 .env
 .env.local

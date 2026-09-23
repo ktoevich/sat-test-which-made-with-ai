@@ -15,6 +15,9 @@ backend/data/tests_bundle_cache.json
 # tools that build from it ever need it.
 question-bank/
 
+# The standalone test is opened from disk; it is not part of the site.
+standalone-test/
+
 # The local SQLite database is never used in production.
 backend/data/app.db
 backend/data/app.db-wal

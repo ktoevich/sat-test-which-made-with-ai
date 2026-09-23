@@ -207,15 +207,19 @@ def _with_formulas(markup: str, render):
 
 def to_text(markup: str, *, keep_math_images: bool) -> str:
     """Flatten a question body to the plain text plus LaTeX the app renders."""
+    # Legacy items draw their formulas as base64 PNGs. The alt text is only the
+    # verbal reading ("open parenthesis, b minus 2, ..."), so the picture
+    # itself is kept; it is set aside so the flattening below leaves it alone.
+    pictures: list[str] = []
+
+    def keep(match: re.Match) -> str:
+        pictures.append(_math_picture(match.group(0)))
+        return f"\x01{len(pictures) - 1}\x01"
+
+    markup = _MATH_IMG.sub(keep if keep_math_images else "", markup)
 
     def render(text: str, hold) -> str:
         text = _ITALIC.sub(lambda m: hold(_italic(m.group(1))), text)
-        if keep_math_images:
-            # Legacy items draw their formulas as base64 PNGs. The alt text is
-            # the verbal reading, which is all that survives the flattening.
-            text = _MATH_IMG.sub(lambda m: f" {_alt_of(m.group(0))} ", text)
-        else:
-            text = _MATH_IMG.sub("", text)
         text = _BREAK.sub("\n", text)
         text = _BLOCK_END.sub("\n\n", text)
         text = _TAG.sub("", text)
@@ -223,7 +227,15 @@ def to_text(markup: str, *, keep_math_images: bool) -> str:
         text = re.sub(r"[^\S\n]+", " ", text)
         return re.sub(r"\n{3,}", "\n\n", text)
 
-    return _with_formulas(markup, render).strip()
+    body = _with_formulas(markup, render).strip()
+    return re.sub("\x01(\\d+)\x01", lambda m: pictures[int(m.group(1))], body)
+
+
+def _math_picture(tag: str) -> str:
+    """A formula drawn as a picture, trimmed to what the frontend needs."""
+    source = re.search(r'src="([^"]*)"', tag)
+    alt = html.escape(_alt_of(tag), quote=True)
+    return f'<img role="math" class="math-img" src="{source.group(1) if source else ""}" alt="{alt}">'
 
 
 def _italic(inner: str) -> str:
@@ -300,6 +312,9 @@ def _figure(svgs: list[str], tables: list[str]) -> tuple[str | None, str]:
         cleaned = re.sub(r'\s(?:class|style|border|cellpadding|cellspacing|width)="[^"]*"', "", cleaned)
         cleaned = re.sub(r"</?figure[^>]*>", "", cleaned)
         cleaned = cleaned.replace("<table", '<table class="question-table"', 1)
+        # The prompt's line breaks become paragraph breaks in the app, so the
+        # indentation between the table's tags must not carry any.
+        cleaned = re.sub(r">\s+<", "><", cleaned)
         prefix += cleaned.strip() + "\n"
     return image, prefix
 
@@ -349,7 +364,11 @@ def convert(record: dict, entry: dict, *, keep_math_images: bool) -> dict[str, A
         "type": qtype,
         "text": text,
         "answer": accepted[0],
-        "rationale": to_text(record.get("rationale") or "", keep_math_images=keep_math_images),
+        # A legacy item keeps its rationale with the answer.
+        "rationale": to_text(
+            record.get("rationale") or (record.get("answer") or {}).get("rationale") or "",
+            keep_math_images=keep_math_images,
+        ),
         "image": image,
         "source": "College Board SAT Suite Educator Question Bank",
     }
@@ -684,7 +703,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--drop-math-images",
         action="store_true",
-        help="drop a legacy item's bitmap formulas instead of keeping their verbal alt text",
+        help="drop a legacy item's bitmap formulas instead of keeping them as pictures",
     )
     args = parser.parse_args(argv)
 

@@ -19,9 +19,25 @@ export function cleanText(text) {
   return String(text ?? '').trim();
 }
 
-/** Turn newlines into paragraph breaks for display. */
+const TABLE = /<table\b[\s\S]*?<\/table>/gi;
+
+/**
+ * Turn newlines into paragraph breaks for display.
+ * A table in the prompt is indented markup: a break inside it is not a
+ * paragraph, and the browser would hoist every one of them out above the
+ * table — dozens of blank lines that push the question out of sight. The
+ * table is a block of its own, so the newline beside it goes too.
+ */
 export function formatParagraphs(text) {
-  return cleanText(text).replace(/\n/g, '<br><br>');
+  const tables = [];
+  const held = cleanText(text).replace(TABLE, (table) => {
+    tables.push(table.replace(/>\s+</g, '><'));
+    return `\u0000${tables.length - 1}\u0000`;
+  });
+  return held
+    .replace(/\s*(\u0000\d+\u0000)\s*/g, '$1')
+    .replace(/\n/g, '<br><br>')
+    .replace(/\u0000(\d+)\u0000/g, (_, index) => tables[Number(index)]);
 }
 
 /** Answers are compared case- and whitespace-insensitively. */

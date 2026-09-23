@@ -45,7 +45,10 @@ OPERATORS = {
     "&": "\\&",
     "_": "\\_",
     "#": "\\#",
-    "\u00a0": "\\,",
+    # A no-break space is how the bank separates words inside a formula —
+    # "80 square centimeters" — so it has to stay a full space; KaTeX drops
+    # an ordinary one.
+    "\u00a0": "\\ ",
     "\u200a": "\\,",
     "\u2009": "\\,",
 }
@@ -152,7 +155,9 @@ def _identifier(body: str) -> str:
 
 
 def _operator(body: str) -> str:
-    body = body.strip() or " "
+    # str.strip() would take a no-break space with it, and that one is a
+    # word gap the formula needs.
+    body = body.strip(" \t\r\n") or " "
     return OPERATORS.get(body, body)
 
 
@@ -277,6 +282,12 @@ def to_latex(fragment: str) -> str:
     for char, replacement in SUBSTITUTES.items():
         latex = latex.replace(char, replacement)
     latex = re.sub(r"\s+", " ", latex).strip()
+    # A word gap at either end separates nothing, and trimming the space off
+    # a trailing "\ " would leave a lone backslash.
+    while latex.startswith("\\ "):
+        latex = latex[2:].lstrip()
+    while latex.endswith("\\") and not latex.endswith("\\\\"):
+        latex = latex[:-1].rstrip()
     # "\pi" immediately followed by a letter would read as the command "\pir".
     latex = _space_commands(latex)
     return latex.strip()
