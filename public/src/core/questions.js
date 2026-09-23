@@ -36,7 +36,11 @@ export function formatParagraphs(text) {
   });
   return held
     .replace(/\s*(\u0000\d+\u0000)\s*/g, '$1')
-    .replace(/\n/g, '<br><br>')
+    // A run of newlines is one paragraph break, however many the bank wrote:
+    // taking each of them for a break left a question with four blank lines
+    // between what it shows and what it asks.
+    .replace(/\n{2,}/g, '<br><br>')
+    .replace(/\n/g, '<br>')
     .replace(/\u0000(\d+)\u0000/g, (_, index) => tables[Number(index)]);
 }
 

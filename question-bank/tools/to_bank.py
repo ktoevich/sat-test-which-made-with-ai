@@ -101,7 +101,7 @@ OPTION_LETTERS = ("A", "B", "C", "D")
 
 _TAG = re.compile(r"<[^>]+>")
 _ITALIC = re.compile(r'<span[^>]*class="[^"]*italic[^"]*"[^>]*>(.*?)</span>', re.S | re.I)
-_MATH_IMG = re.compile(r'<img[^>]*class="[^"]*math-img[^"]*"[^>]*>', re.S | re.I)
+_MATH_IMG = re.compile(r'<img[^>]*(?:class="[^"]*math-img[^"]*"|role="math")[^>]*>', re.S | re.I)
 _ALT = re.compile(r'alt="([^"]*)"')
 _BLOCK_END = re.compile(r"</(?:p|div|tr|li|h[1-6])>", re.I)
 _BREAK = re.compile(r"<br\s*/?>", re.I)
@@ -234,7 +234,9 @@ def to_text(markup: str, *, keep_math_images: bool) -> str:
 def _math_picture(tag: str) -> str:
     """A formula drawn as a picture, trimmed to what the frontend needs."""
     source = re.search(r'src="([^"]*)"', tag)
-    alt = html.escape(_alt_of(tag), quote=True)
+    # The reading is one line: a newline left in it would break the prompt
+    # into paragraphs where the picture sits.
+    alt = html.escape(" ".join(_alt_of(tag).split()), quote=True)
     return f'<img role="math" class="math-img" src="{source.group(1) if source else ""}" alt="{alt}">'
 
 
@@ -296,6 +298,30 @@ def _alt_of(tag: str) -> str:
     return html.unescape(match.group(1)) if match else ""
 
 
+_CELL = re.compile(r"<t[dh]\b[^>]*>(.*?)</t[dh]>", re.S | re.I)
+
+
+def _stacked_rows(table: str) -> list[str] | None:
+    """The lines of a one-column table, or None when it is a real table.
+
+    The bank stacks the equations of a system in a borderless one-column
+    table. Left as a table it would be drawn with data-table rules around
+    each equation, so it becomes plain lines instead.
+    """
+    rows = re.findall(r"<tr\b.*?</tr>", table, re.S | re.I)
+    if not rows or any(len(re.findall(r"<t[dh]\b", row)) != 1 for row in rows):
+        return None
+    lines = []
+    for row in rows:
+        cell = _CELL.search(row)
+        # Everything but the formula pictures is markup around the text.
+        text = re.sub(r"<(?!img\b)[^>]+>", "", cell.group(1) if cell else "")
+        text = re.sub(r"[^\S\n]+", " ", html.unescape(text)).strip()
+        if text:
+            lines.append(text)
+    return lines or None
+
+
 def _figure(svgs: list[str], tables: list[str]) -> tuple[str | None, str]:
     """The question's image, and the table markup that stays in the prompt."""
     image = None
@@ -306,6 +332,11 @@ def _figure(svgs: list[str], tables: list[str]) -> tuple[str | None, str]:
     prefix = ""
     for table in tables:
         cleaned = _with_formulas(table, lambda body, hold: html.unescape(body))
+        stacked = _stacked_rows(cleaned)
+        if stacked is not None:
+            # A blank line after the block, the way the bank sets it off.
+            prefix += "\n".join(stacked) + "\n\n"
+            continue
         # The bank ships column widths and borders inline; the app's own
         # .question-table rules should decide how a table looks here.
         cleaned = cleaned.replace("&", "&amp;")
@@ -341,6 +372,10 @@ def convert(record: dict, entry: dict, *, keep_math_images: bool) -> dict[str, A
         raise Skipped("no SAT difficulty")
 
     body, options, accepted, qtype = _parts(record)
+    # Rewrite the formula pictures before anything is cut out, so the ones that
+    # stay inside a table are tidied too — an alt text with a line break in it
+    # would otherwise split the prompt into paragraphs.
+    body = _MATH_IMG.sub(lambda match: _math_picture(match.group(0)), body)
 
     body, svgs = extract_blocks(body, "svg")
     body, figures = extract_blocks(body, "figure")
@@ -414,7 +449,9 @@ def _digital(record: dict) -> tuple[str, list[str], str, str]:
 
 
 def _legacy(record: dict) -> tuple[str, list[str], str, str]:
-    body = (record.get("prompt") or "") + (record.get("body") or "")
+    # The equation, table or formula a legacy item keeps in `body` is what the
+    # question refers to as "shown above", so it goes first.
+    body = (record.get("body") or "") + (record.get("prompt") or "")
     answer = record.get("answer") or {}
     choices = answer.get("choices") or {}
     rationale = answer.get("rationale") or ""

@@ -8,8 +8,13 @@ import test from 'node:test';
 
 import { formatParagraphs } from '../../public/src/core/questions.js';
 
-test('a line break in the prose is a paragraph break', () => {
-  assert.equal(formatParagraphs('First.\nSecond.'), 'First.<br><br>Second.');
+test('a line break in the prose is a line break', () => {
+  assert.equal(formatParagraphs('First.\nSecond.'), 'First.<br>Second.');
+});
+
+test('a run of newlines is one paragraph break, not one per newline', () => {
+  assert.equal(formatParagraphs('Shown.\n\nAsked?'), 'Shown.<br><br>Asked?');
+  assert.equal(formatParagraphs('Shown.\n\n\n\nAsked?'), 'Shown.<br><br>Asked?');
 });
 
 test('a table keeps its markup and adds no breaks', () => {
