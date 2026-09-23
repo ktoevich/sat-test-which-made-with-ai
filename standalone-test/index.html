@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SAT Math Practice Test</title>
+  <!-- Opened straight from disk: no modules, no fetch, everything is a plain
+       script next to this file. KaTeX is bundled so formulas render offline;
+       only the Desmos calculator needs the network. -->
+  <link rel="stylesheet" href="./vendor/katex/katex.min.css">
+  <link rel="stylesheet" href="./test.css">
+  <script defer src="./vendor/katex/katex.min.js"></script>
+  <script defer src="./vendor/katex/auto-render.min.js"></script>
+  <script defer src="./questions.js"></script>
+  <script defer src="./test.js"></script>
+</head>
+<body>
+  <header class="bar">
+    <div class="bar__title" id="module-title">Math</div>
+    <div class="bar__timer" id="timer-box">
+      <span class="bar__clock" id="timer">35:00</span>
+      <button type="button" class="link-btn" id="timer-toggle">Hide</button>
+    </div>
+    <div class="bar__tools" id="tools">
+      <button type="button" class="tool-btn" id="calc-btn">Calculator</button>
+      <button type="button" class="tool-btn" id="ref-btn">Reference</button>
+    </div>
+  </header>
+
+  <main class="screen" id="screen-exam" hidden>
+    <section class="pane pane--question">
+      <div class="figure" id="figure"></div>
+      <div class="question-text" id="question-text"></div>
+    </section>
+    <section class="pane pane--answer">
+      <div class="qhead">
+        <span class="qhead__num" id="qnum">1</span>
+        <button type="button" class="mark-btn" id="mark-btn"><span class="mark-btn__flag"></span>Mark for Review</button>
+      </div>
+      <div class="answers" id="answers"></div>
+    </section>
+  </main>
+
+  <main class="screen screen--center" id="screen-review" hidden>
+    <h1 class="review__title">Check Your Work</h1>
+    <p class="review__hint">On test day, you won't be able to move on to the next module until time expires.<br>
+      For this practice test, you can click <strong>Next</strong> when you're ready to move on.</p>
+    <div class="review__card">
+      <div class="review__head">
+        <strong id="review-module">Math: Module 1 Questions</strong>
+        <span class="legend"><span class="legend__item"><i class="dot dot--open"></i>Unanswered</span>
+          <span class="legend__item"><i class="dot dot--flag"></i>For Review</span></span>
+      </div>
+      <div class="grid" id="review-grid"></div>
+    </div>
+  </main>
+
+  <main class="screen screen--center" id="screen-break" hidden>
+    <div class="notice">
+      <h1>Module 1 complete</h1>
+      <p id="break-text"></p>
+      <button type="button" class="primary-btn" id="start-module-2">Start Module 2</button>
+    </div>
+  </main>
+
+  <main class="screen screen--results" id="screen-results" hidden>
+    <div class="results">
+      <div class="results__score">
+        <div class="results__label">Your practice score</div>
+        <div class="results__value" id="score">—</div>
+        <div class="results__range">200–800 · Math</div>
+      </div>
+      <div class="results__stats" id="stats"></div>
+      <p class="results__note">The score is an estimate from the share of questions answered correctly; the real SAT's conversion also weighs which module 2 you received.</p>
+      <div class="results__actions">
+        <button type="button" class="primary-btn" id="next-test-btn">Next test</button>
+        <button type="button" class="secondary-btn" id="retake-btn">Retake this test</button>
+        <label class="results__pick">Or choose a test:
+          <select id="test-select"></select>
+        </label>
+      </div>
+      <div id="history"></div>
+      <h2 class="results__heading">Answers</h2>
+      <div id="answer-list"></div>
+    </div>
+  </main>
+
+  <footer class="foot" id="foot">
+    <div class="foot__name" id="test-name"></div>
+    <button type="button" class="map-btn" id="map-btn">Question 1 of 22 <span class="caret">▲</span></button>
+    <div class="foot__nav">
+      <button type="button" class="primary-btn" id="back-btn">Back</button>
+      <button type="button" class="primary-btn" id="next-btn">Next</button>
+    </div>
+  </footer>
+
+  <div class="popover" id="map" hidden>
+    <div class="popover__head">
+      <strong id="map-title">Math: Module 1 Questions</strong>
+      <button type="button" class="icon-btn" id="map-close" aria-label="Close">×</button>
+    </div>
+    <div class="legend"><span class="legend__item"><i class="dot dot--here"></i>Current</span>
+      <span class="legend__item"><i class="dot dot--open"></i>Unanswered</span>
+      <span class="legend__item"><i class="dot dot--flag"></i>For Review</span></div>
+    <div class="grid" id="map-grid"></div>
+    <button type="button" class="secondary-btn popover__review" id="map-review">Go to Review Page</button>
+  </div>
+
+  <div class="calc" id="calc" hidden>
+    <div class="calc__head" id="calc-head">
+      <strong>Calculator</strong>
+      <button type="button" class="icon-btn" id="calc-close" aria-label="Close calculator">×</button>
+    </div>
+    <div class="calc__host" id="calc-host"><p class="calc__notice" id="calc-notice">Loading Desmos…</p></div>
+  </div>
+
+  <div class="modal" id="ref" hidden>
+    <div class="modal__card">
+      <div class="popover__head">
+        <strong>Reference</strong>
+        <button type="button" class="icon-btn" id="ref-close" aria-label="Close">×</button>
+      </div>
+      <div class="ref" id="ref-body">
+        <div><b>Circle</b> $A = \pi r^2$, $C = 2\pi r$</div>
+        <div><b>Rectangle</b> $A = \ell w$</div>
+        <div><b>Triangle</b> $A = \frac{1}{2}bh$</div>
+        <div><b>Pythagorean theorem</b> $c^2 = a^2 + b^2$</div>
+        <div><b>Special right triangles</b> $30^\circ$–$60^\circ$–$90^\circ$: $x,\ x\sqrt{3},\ 2x$; $45^\circ$–$45^\circ$–$90^\circ$: $s,\ s,\ s\sqrt{2}$</div>
+        <div><b>Rectangular prism</b> $V = \ell wh$</div>
+        <div><b>Cylinder</b> $V = \pi r^2 h$</div>
+        <div><b>Sphere</b> $V = \frac{4}{3}\pi r^3$</div>
+        <div><b>Cone</b> $V = \frac{1}{3}\pi r^2 h$</div>
+        <div><b>Pyramid</b> $V = \frac{1}{3}\ell wh$</div>
+        <p>The number of degrees of arc in a circle is 360.<br>
+          The number of radians of arc in a circle is $2\pi$.<br>
+          The sum of the measures in degrees of the angles of a triangle is 180.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="fatal" id="fatal" hidden>
+    <p><strong>No tests found.</strong> <code>questions.js</code> is missing next to this page —
+      build it with <code>python3 standalone-test/build.py</code>.</p>
+  </div>
+</body>
+</html>
